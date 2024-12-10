@@ -87,8 +87,8 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         <div className="flex space-x-4 items-center">
           <div className="w-64">
             <StatusDropdown
-              value={audit.status}
-              onChange={(value) => handleElementChange(audit.id, 'status', value)}
+              value={audit?.status || ''}
+              onChange={(value) => handleElementChange(audit?.id ?? '', 'status', value)}
               options={[
                 'En cours de rédaction',
                 'Fini',
@@ -96,7 +96,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
                 'En attente de documents',
                 'Envoyé'
               ]}
-              type="audit"
             />
           </div>
           <div className="flex-1">
@@ -137,17 +136,17 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         />
 
         <InfoTable
-          title="Informations relatives à l&apos;arrêté préfectoral"
+          title="Informations relatives à l'arrêté préfectoral"
           rows={[
-            { label: "Nom du titulaire de l&apos;arrêté préfectoral :", value: building?.titularArreteePrefectoral ?? '' },
+            { label: "Nom du titulaire de l'arrêté préfectoral :", value: building?.titularArreteePrefectoral ?? '' },
             { label: 'Adresse du site :', value: building?.address ?? '' },
-            { label: "Date de l&apos;arrêté préfectoral en vigueur et arrêté précédents :", value: building?.dateAPAPC ?? '' },
-            { label: "Changement d&apos;exploitant connu :", value: building?.changementExploitant ?? '' }
+            { label: "Date de l'arrêté préfectoral en vigueur et arrêté précédents :", value: building?.dateAPAPC ?? '' },
+            { label: "Changement d'exploitant connu :", value: building?.changementExploitant ?? '' }
           ]}
         />
 
         <InfoTable
-          title="Informations relatives à l&apos;exploitation"
+          title="Informations relatives à l'exploitation"
           rows={[
             { label: 'Propriétaire :', value: building?.owner ?? '' },
             { label: 'Locataire du bâtiment :', value: building?.tenant ?? '' },
@@ -167,7 +166,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         <InfoTable
           rows={[
             { label: 'Date de visite :', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'visitDate', value) },
-            { label: "Date d&apos;émission du rapport :", value: audit?.reportDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'reportDate', value) },
+            { label: "Date d'émission du rapport :", value: audit?.reportDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'reportDate', value) },
             { label: 'Rédacteur :', value: audit?.editor ?? '' }
           ]}
         />

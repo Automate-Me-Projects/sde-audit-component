@@ -9,7 +9,6 @@ import {
   AuditElement,
   Regulatory
 } from '../types';
-import { sortByPosition } from '../utils';
 
 interface AuditElementsProps {
   sections: Section[];
@@ -55,54 +54,65 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
+  const getPosition = (item: Section | Category | SubCategory | TemplateElement) => {
+    if ('position' in item) return item.position;
+    if ('positionByVersion' in item && Array.isArray(item.positionByVersion)) {
+      return item.positionByVersion[templateVersion - 1] || 0;
+    }
+    return 0;
+  };
+
   const renderElements = () => {
     if (templateVersion === 2) {
-      return sortByPosition(sections, templateVersion).map((section) => {
-        const sectionCategories = sortByPosition(
-          categories.filter((c) => c.section === section._id),
-          templateVersion
-        );
+      return (sections || [])
+        .sort((a, b) => getPosition(a) - getPosition(b))
+        .map((section) => {
+          const sectionCategories = (categories || [])
+            .filter((c) => c.section === section._id)
+            .sort((a, b) => getPosition(a) - getPosition(b));
 
-        if (sectionCategories.length === 0) return null;
+          if (sectionCategories.length === 0) return null;
 
-        return (
-          <div key={section._id} className="w-full mb-8">
-            <h2 className="text-xl font-bold mb-4">{section.name}</h2>
-            {sectionCategories.map((category) => renderCategory(category, section._id))}
-          </div>
-        );
-      });
+          return (
+            <div key={section._id} className="w-full">
+              <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">{section.name}</h2>
+              <div className="w-full space-y-6">
+                {sectionCategories.map((category) => renderCategory(category, section._id))}
+              </div>
+            </div>
+          );
+        });
     }
 
-    return sortByPosition(categories, templateVersion).map((category) =>
-      renderCategory(category)
-    );
+    return (categories || [])
+      .sort((a, b) => getPosition(a) - getPosition(b))
+      .map((category) => renderCategory(category));
   };
 
   const renderCategory = (category: Category, sectionId?: string) => {
-    const categorySubCategories = sortByPosition(
-      subCategories.filter((s) => s.categoryId === category._id),
-      templateVersion
-    );
+    const categorySubCategories = (subCategories || [])
+      .filter((s) => s.categoryId === category._id)
+      .sort((a, b) => getPosition(a) - getPosition(b));
 
     if (categorySubCategories.length === 0) return null;
 
     return (
       <div key={category._id} className="w-full mb-6">
-        <h3 className="text-lg font-semibold mb-3">{category.name}</h3>
+        <h3 className="text-[rgb(146,208,80)] text-lg font-semibold mb-3">{category.name}</h3>
         {sectionId && renderRegulatory(sectionId, category._id)}
-        {categorySubCategories.map((subCategory) =>
-          renderSubCategory(subCategory, sectionId)
-        )}
+        <div className="w-full space-y-6">
+          {categorySubCategories.map((subCategory) =>
+            renderSubCategory(subCategory, sectionId)
+          )}
+        </div>
       </div>
     );
   };
 
   const renderSubCategory = (subCategory: SubCategory, sectionId?: string) => {
-    const subCategoryElements = sortByPosition(
-      templateElements.filter((t) => t.subCategoryId === subCategory._id),
-      templateVersion
-    );
+    const subCategoryElements = (templateElements || [])
+      .filter((t) => t.subCategoryId === subCategory._id)
+      .sort((a, b) => getPosition(a) - getPosition(b));
 
     if (subCategoryElements.length === 0) return null;
 
@@ -119,9 +129,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             return (
               <div
                 key={element._id}
-                className="grid grid-cols-7 gap-4 items-center mb-2 p-2 bg-white rounded-lg shadow-sm w-full"
+                className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
               >
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 min-w-[60px]">
                   <button
                     onClick={() => onElementDelete(element._id)}
                     className="text-red-500 hover:text-red-700"
@@ -135,56 +145,68 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                     <Copy className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="text-sm">{element.name}</div>
+
+                <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
+                  {element.name}
+                </div>
+
                 <textarea
                   value={auditElement?.constat || ''}
                   onChange={(e) =>
                     onElementChange(element._id, 'constat', e.target.value)
                   }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
                   rows={3}
                 />
-                <StatusDropdown
-                  value={auditElement?.status || ''}
-                  onChange={(value) => onElementChange(element._id, 'status', value)}
-                  options={[
-                    'Conforme',
-                    'Non conforme',
-                    'Observation',
-                    'Sans objet',
-                    'Pour information',
-                  ]}
-                />
-                <select
-                  value={auditElement?.actionType || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'actionType', e.target.value)
-                  }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Type d&apos;action</option>
-                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                    (type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    )
-                  )}
-                </select>
+
+                <div className="border-r border-gray-200">
+                  <StatusDropdown
+                    value={auditElement?.status || ''}
+                    onChange={(value) => onElementChange(element._id, 'status', value)}
+                    options={[
+                      'Conforme',
+                      'Non conforme',
+                      'Observation',
+                      'Sans objet',
+                      'Pour information',
+                    ]}
+                  />
+                </div>
+
+                <div className="border-r border-gray-200">
+                  <select
+                    value={auditElement?.actionType || ''}
+                    onChange={(e) =>
+                      onElementChange(element._id, 'actionType', e.target.value)
+                    }
+                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Type d&apos;action</option>
+                    {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+                      (type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+
                 <textarea
                   value={auditElement?.action || ''}
                   onChange={(e) =>
                     onElementChange(element._id, 'action', e.target.value)
                   }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
                   rows={3}
                 />
+
                 <select
                   value={auditElement?.actionOwner || ''}
                   onChange={(e) =>
                     onElementChange(element._id, 'actionOwner', e.target.value)
                   }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
                   {actors.map((actor) => (
