@@ -126,7 +126,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       </div>
 
       {/* Main Content */}
-      <div className="pt-32 px-6 pb-8 max-w-7xl mx-auto space-y-8">
+      <div className="pt-32 px-6 pb-8 w-full space-y-8">
         <InfoTable
           rows={[
             { label: 'Date', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'visitDate', value) },

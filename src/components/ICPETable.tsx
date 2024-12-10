@@ -10,8 +10,8 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
   return (
     <div className="w-full">
       <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ICPE</h2>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="w-full overflow-x-auto">
+        <table className="w-full divide-y divide-gray-200">
           <thead>
             <tr>
               <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
