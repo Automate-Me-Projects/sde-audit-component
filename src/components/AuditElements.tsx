@@ -9,6 +9,7 @@ import {
   AuditElement,
   Regulatory
 } from '../types';
+import { sortTemplateElements } from '../utils';
 
 interface AuditElementsProps {
   sections: Section[];
@@ -54,177 +55,308 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const getPosition = (item: Section | Category | SubCategory | TemplateElement) => {
-    if ('position' in item) return item.position;
-    if ('positionByVersion' in item && Array.isArray(item.positionByVersion)) {
-      return item.positionByVersion[templateVersion - 1] || 0;
-    }
-    return 0;
-  };
-
   const renderElements = () => {
     if (templateVersion === 2) {
-      return (sections || [])
-        .sort((a, b) => getPosition(a) - getPosition(b))
-        .map((section) => {
-          const sectionCategories = (categories || [])
-            .filter((c) => c.section === section._id)
-            .sort((a, b) => getPosition(a) - getPosition(b));
+      // First get and sort sections
+      const validSections = (sections || [])
+        .filter(section => section.templateVersion?.includes(templateVersion))
+        .sort((a, b) => (a.position || 0) - (b.position || 0));
 
-          if (sectionCategories.length === 0) return null;
-
-          return (
-            <div key={section._id} className="w-full">
-              <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">{section.name}</h2>
-              <div className="w-full space-y-6">
-                {sectionCategories.map((category) => renderCategory(category, section._id))}
-              </div>
-            </div>
+      return validSections.map((section) => {
+        // For each section, get its categories
+        const sectionCategories = (categories || [])
+          .filter(category => 
+            category.section === section._id && 
+            category.templateVersion?.includes(templateVersion)
           );
-        });
+
+        // Sort categories using the same logic as sortTemplateElements
+        const sortedCategories = sortTemplateElements(
+          sectionCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+          categories,
+          subCategories,
+          sections,
+          templateVersion
+        ).map(te => categories?.find(c => c._id === te._id)!);
+
+        if (sortedCategories.length === 0) return null;
+
+        return (
+          <div key={section._id} className="w-full">
+            <h2 className="text-black text-xl font-medium mb-4">{section.name}</h2>
+            <div className="w-full space-y-6">
+              {sortedCategories.map((category) => renderCategory(category, section._id))}
+            </div>
+          </div>
+        );
+      });
     }
 
-    return (categories || [])
-      .sort((a, b) => getPosition(a) - getPosition(b))
-      .map((category) => renderCategory(category));
+    // For template version 1, just get categories
+    const validCategories = (categories || [])
+      .filter(category => category.templateVersion?.includes(templateVersion));
+
+    // Sort categories using the same logic as sortTemplateElements
+    const sortedCategories = sortTemplateElements(
+      validCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    ).map(te => categories?.find(c => c._id === te._id)!);
+
+    return sortedCategories.map((category) => renderCategory(category));
   };
 
   const renderCategory = (category: Category, sectionId?: string) => {
+    // Get subcategories for this category
     const categorySubCategories = (subCategories || [])
-      .filter((s) => s.categoryId === category._id)
-      .sort((a, b) => getPosition(a) - getPosition(b));
+      .filter(subCategory => 
+        subCategory.categoryId === category._id && 
+        subCategory.templateVersion?.includes(templateVersion)
+      );
 
-    if (categorySubCategories.length === 0) return null;
+    // Sort subcategories using sortTemplateElements
+    const sortedSubCategories = sortTemplateElements(
+      categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    ).map(te => subCategories?.find(sc => sc._id === te._id)!);
+
+    // Get and sort template elements that are directly linked to this category (no subcategory)
+    const directTemplateElements = sortTemplateElements(
+      (templateElements || []).filter(element => 
+        element.categoryId === category._id && 
+        (!element.subCategoryId || element.subCategoryId === '') && 
+        element.templateVersion?.includes(templateVersion)
+      ),
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    );
+
+    if (sortedSubCategories.length === 0 && directTemplateElements.length === 0) return null;
 
     return (
       <div key={category._id} className="w-full mb-6">
-        <h3 className="text-[rgb(146,208,80)] text-lg font-semibold mb-3">{category.name}</h3>
+        <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
         {sectionId && renderRegulatory(sectionId, category._id)}
         <div className="w-full space-y-6">
-          {categorySubCategories.map((subCategory) =>
+          {/* Render subcategories if any */}
+          {sortedSubCategories.map((subCategory) =>
             renderSubCategory(subCategory, sectionId)
           )}
+          {/* Render direct template elements if any */}
+          {directTemplateElements.map((element) => (
+            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+              <div className="flex space-x-2 min-w-[60px]">
+                <button
+                  onClick={() => onElementDelete(element._id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => onElementDuplicate(element)}
+                  className="text-green-500 hover:text-green-700"
+                >
+                  <Copy className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
+                {element.name}
+              </div>
+
+              <textarea
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'constat', e.target.value)
+                }
+                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                rows={3}
+              />
+
+              <div className="border-r border-gray-200">
+                <StatusDropdown
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
+                  onChange={(value) => onElementChange(element._id, 'status', value)}
+                  options={[
+                    'Conforme',
+                    'Non conforme',
+                    'Observation',
+                    'Sans objet',
+                    'Pour information',
+                  ]}
+                />
+              </div>
+
+              <div className="border-r border-gray-200">
+                <select
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
+                  onChange={(e) =>
+                    onElementChange(element._id, 'actionType', e.target.value)
+                  }
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Type d&apos;action</option>
+                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+                    (type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+
+              <textarea
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'action', e.target.value)
+                }
+                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                rows={3}
+              />
+
+              <select
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'actionOwner', e.target.value)
+                }
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Acteur</option>
+                {(actors || []).map((actor) => (
+                  <option key={actor} value={actor}>
+                    {actor}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
       </div>
     );
   };
 
   const renderSubCategory = (subCategory: SubCategory, sectionId?: string) => {
-    const subCategoryElements = (templateElements || [])
-      .filter((t) => t.subCategoryId === subCategory._id)
-      .sort((a, b) => getPosition(a) - getPosition(b));
+    // Get and sort template elements for this subcategory
+    const subCategoryElements = sortTemplateElements(
+      (templateElements || []).filter(element => 
+        element.subCategoryId === subCategory._id && 
+        element.templateVersion?.includes(templateVersion)
+      ),
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    );
 
     if (subCategoryElements.length === 0) return null;
 
     return (
-      <div key={subCategory._id} className="w-full mb-4">
-        <h4 className="text-md font-medium mb-2">{subCategory.name}</h4>
-        {sectionId && renderRegulatory(sectionId, subCategory.categoryId, subCategory._id)}
-        <div className="w-full space-y-6">
-          {subCategoryElements.map((element) => {
-            const auditElement = auditElements.find(
-              (ae) => ae.templateElementId === element._id
-            );
+      <div key={subCategory._id} className="w-full">
+        <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
+        <div className="w-full space-y-4">
+          {subCategoryElements.map((element) => (
+            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+              <div className="flex space-x-2 min-w-[60px]">
+                <button
+                  onClick={() => onElementDelete(element._id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => onElementDuplicate(element)}
+                  className="text-green-500 hover:text-green-700"
+                >
+                  <Copy className="h-5 w-5" />
+                </button>
+              </div>
 
-            return (
-              <div
-                key={element._id}
-                className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
-              >
-                <div className="flex space-x-2 min-w-[60px]">
-                  <button
-                    onClick={() => onElementDelete(element._id)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => onElementDuplicate(element)}
-                    className="text-green-500 hover:text-green-700"
-                  >
-                    <Copy className="h-5 w-5" />
-                  </button>
-                </div>
+              <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
+                {element.name}
+              </div>
 
-                <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
-                  {element.name}
-                </div>
+              <textarea
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'constat', e.target.value)
+                }
+                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                rows={3}
+              />
 
-                <textarea
-                  value={auditElement?.constat || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'constat', e.target.value)
-                  }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
-                  rows={3}
+              <div className="border-r border-gray-200">
+                <StatusDropdown
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
+                  onChange={(value) => onElementChange(element._id, 'status', value)}
+                  options={[
+                    'Conforme',
+                    'Non conforme',
+                    'Observation',
+                    'Sans objet',
+                    'Pour information',
+                  ]}
                 />
+              </div>
 
-                <div className="border-r border-gray-200">
-                  <StatusDropdown
-                    value={auditElement?.status || ''}
-                    onChange={(value) => onElementChange(element._id, 'status', value)}
-                    options={[
-                      'Conforme',
-                      'Non conforme',
-                      'Observation',
-                      'Sans objet',
-                      'Pour information',
-                    ]}
-                  />
-                </div>
-
-                <div className="border-r border-gray-200">
-                  <select
-                    value={auditElement?.actionType || ''}
-                    onChange={(e) =>
-                      onElementChange(element._id, 'actionType', e.target.value)
-                    }
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Type d&apos;action</option>
-                    {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                      (type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                <textarea
-                  value={auditElement?.action || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'action', e.target.value)
-                  }
-                  className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
-                  rows={3}
-                />
-
+              <div className="border-r border-gray-200">
                 <select
-                  value={auditElement?.actionOwner || ''}
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
                   onChange={(e) =>
-                    onElementChange(element._id, 'actionOwner', e.target.value)
+                    onElementChange(element._id, 'actionType', e.target.value)
                   }
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Acteur</option>
-                  {actors.map((actor) => (
-                    <option key={actor} value={actor}>
-                      {actor}
-                    </option>
-                  ))}
+                  <option value="">Type d&apos;action</option>
+                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+                    (type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
-            );
-          })}
+
+              <textarea
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'action', e.target.value)
+                }
+                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                rows={3}
+              />
+
+              <select
+                value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
+                onChange={(e) =>
+                  onElementChange(element._id, 'actionOwner', e.target.value)
+                }
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Acteur</option>
+                {(actors || []).map((actor) => (
+                  <option key={actor} value={actor}>
+                    {actor}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full">
       {renderElements()}
     </div>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import { Listbox } from '@headlessui/react';
 import { ChevronsUpDown } from 'lucide-react';
 import { Section, Category, SubCategory, TemplateElement } from '../types';
-import { getHierarchyPath, isTemplateElementPresent } from '../utils';
+import { getHierarchyPath, isTemplateElementPresent, sortTemplateElements } from '../utils';
 
 interface ElementDropdownProps {
   sections: Section[];
@@ -30,6 +30,10 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
     onSelect(element.sectionId || null, element.categoryId, element.subCategoryId || null, element.name);
   };
 
+  const sortedTemplateElements = React.useMemo(() => {
+    return sortTemplateElements(allTemplateElements, categories, subCategories, sections, templateVersion);
+  }, [allTemplateElements, categories, subCategories, sections, templateVersion]);
+
   return (
     <Listbox value={selectedElement} onChange={handleSelect}>
       <div className="relative mt-1">
@@ -44,7 +48,7 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
           </span>
         </Listbox.Button>
         <Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-          {allTemplateElements.map((element) => (
+          {sortedTemplateElements.map((element) => (
             <Listbox.Option
               key={element._id}
               value={element}
@@ -57,10 +61,10 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
               {({ selected }) => (
                 <>
                   <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                    {getHierarchyPath(element, categories, subCategories, sections, templateVersion)}
                     {isTemplateElementPresent(element, templateElements) && (
-                      <span className="ml-2 text-gray-500">(déjà présent)</span>
+                      <span className="text-green-600 mr-2 text-sm">✓ </span>
                     )}
+                    {getHierarchyPath(element, categories, subCategories, sections, templateVersion)}
                   </span>
                   {selected && (
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-amber-600">

@@ -50,24 +50,32 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
 
   return (
     <Dialog open={isOpen} onClose={onClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/50 transition-opacity" aria-hidden="true" />
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
-          <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-gray-900 flex justify-between items-center">
-            Ajouter un élément
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
-              <X className="h-6 w-6" />
-            </button>
+        <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-lg bg-white p-6 text-left align-middle shadow-xl transition-all">
+          <Dialog.Title as="div" className="mb-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Ajouter un élément
+              </h3>
+              <button 
+                onClick={onClose} 
+                className="text-gray-400 hover:text-gray-600 transition-colors rounded-full p-2 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-2 border-b border-gray-200" />
           </Dialog.Title>
 
-          <div className="mt-4 space-y-4">
+          <div className="space-y-4">
             {templateVersion === 2 && (
-              <div>
-                <label className="label">Section</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Section</label>
                 <select
                   value={selectedSection}
                   onChange={(e) => setSelectedSection(e.target.value)}
-                  className="select"
+                  className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">Sélectionner une section</option>
                   {sections.map((section) => (
@@ -79,12 +87,12 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               </div>
             )}
 
-            <div>
-              <label className="label">Catégorie</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Catégorie</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="select"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une catégorie</option>
                 {filteredCategories.map((category) => (
@@ -95,12 +103,12 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               </select>
             </div>
 
-            <div>
-              <label className="label">Sous-catégorie</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Sous-catégorie</label>
               <select
                 value={selectedSubCategory}
                 onChange={(e) => setSelectedSubCategory(e.target.value)}
-                className="select"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une sous-catégorie</option>
                 {filteredSubCategories.map((subCategory) => (
@@ -111,23 +119,30 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               </select>
             </div>
 
-            <div>
-              <label className="label">Nom de l&apos;élément</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">Nom de l&apos;élément</label>
               <input
                 type="text"
                 value={elementName}
                 onChange={(e) => setElementName(e.target.value)}
-                className="input"
-                placeholder="Entrer le nom de l&apos;élément"
+                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
+                placeholder="Entrer le nom de l'élément"
               />
             </div>
 
-            <div className="mt-6">
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Annuler
+              </button>
               <button
                 type="button"
                 onClick={handleAdd}
                 disabled={!selectedCategory || !elementName}
-                className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
               >
                 Ajouter
               </button>
