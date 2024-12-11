@@ -151,8 +151,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
           )}
           {/* Render direct template elements if any */}
           {directTemplateElements.map((element) => (
-            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
-              <div className="flex space-x-2 min-w-[60px]">
+            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+              <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => onElementDelete(element._id)}
                   className="text-red-500 hover:text-red-700"
@@ -167,7 +167,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 </button>
               </div>
 
-              <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
+              <div className="bg-gray-50 min-h-[80px] w-full">
                 {element.name}
               </div>
 
@@ -176,11 +176,11 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 onChange={(e) =>
                   onElementChange(element._id, 'constat', e.target.value)
                 }
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
 
-              <div className="border-r border-gray-200">
+              <div>
                 <StatusDropdown
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
                   onChange={(value) => onElementChange(element._id, 'status', value)}
@@ -194,7 +194,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 />
               </div>
 
-              <div className="border-r border-gray-200">
+              <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
                   onChange={(e) =>
@@ -218,24 +218,26 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 onChange={(e) =>
                   onElementChange(element._id, 'action', e.target.value)
                 }
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
 
-              <select
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'actionOwner', e.target.value)
-                }
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Acteur</option>
-                {(actors || []).map((actor) => (
-                  <option key={actor} value={actor}>
-                    {actor}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) =>
+                    onElementChange(element._id, 'actionOwner', e.target.value)
+                  }
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Acteur</option>
+                  {(actors || []).map((actor) => (
+                    <option key={actor} value={actor}>
+                      {actor}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>
@@ -263,8 +265,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
         <div className="w-full space-y-4">
           {subCategoryElements.map((element) => (
-            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-4 items-start mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
-              <div className="flex space-x-2 min-w-[60px]">
+            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+              <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => onElementDelete(element._id)}
                   className="text-red-500 hover:text-red-700"
@@ -279,7 +281,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 </button>
               </div>
 
-              <div className="text-sm bg-gray-50 p-2 rounded min-h-[80px] border-r border-gray-200">
+              <div className="bg-gray-50 min-h-[80px] w-full">
                 {element.name}
               </div>
 
@@ -288,11 +290,11 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 onChange={(e) =>
                   onElementChange(element._id, 'constat', e.target.value)
                 }
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
 
-              <div className="border-r border-gray-200">
+              <div>
                 <StatusDropdown
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
                   onChange={(value) => onElementChange(element._id, 'status', value)}
@@ -306,7 +308,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 />
               </div>
 
-              <div className="border-r border-gray-200">
+              <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
                   onChange={(e) =>
@@ -330,24 +332,26 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 onChange={(e) =>
                   onElementChange(element._id, 'action', e.target.value)
                 }
-                className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px] border-r border-gray-200"
+                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
 
-              <select
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'actionOwner', e.target.value)
-                }
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Acteur</option>
-                {(actors || []).map((actor) => (
-                  <option key={actor} value={actor}>
-                    {actor}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <select
+                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) =>
+                    onElementChange(element._id, 'actionOwner', e.target.value)
+                  }
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Acteur</option>
+                  {(actors || []).map((actor) => (
+                    <option key={actor} value={actor}>
+                      {actor}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>
