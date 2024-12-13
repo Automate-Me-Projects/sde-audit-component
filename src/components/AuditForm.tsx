@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import debounce from 'lodash/debounce';
 import { jsPDF } from 'jspdf';
@@ -23,57 +23,83 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   auditElements,
   regulatories,
   images,
+  onElementChange,
+  onElementDuplicate,
+  onElementDelete,
+  onElementAdd
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [changedElements, setChangedElements] = useState<Array<{ elementId: string; field: string; value: any }>>([]);
   const [duplicatedElements, setDuplicatedElements] = useState<Array<any>>([]);
   const [deletedElements, setDeletedElements] = useState<Array<string>>([]);
+  const [templateVersion, setTemplateVersion] = useState(audit.templateVersion);
 
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
-      setChangedElements((prev) => [...prev, { elementId, field, value }]);
+      handleElementChange(elementId, field, value);
     }, 500),
     []
   );
 
   const handleElementChange = (elementId: string, field: string, value: any) => {
-    debouncedElementChange(elementId, field, value);
+    if (onElementChange) {
+      onElementChange(elementId, field, value);
+    }
+
+    const newChangedElements = [...changedElements, { elementId, field, value }];
+    setChangedElements(newChangedElements);
   };
 
   const handleElementDuplicate = (element: any) => {
-    setDuplicatedElements((prev) => [...prev, element]);
+    if (onElementDuplicate) {
+      onElementDuplicate(element);
+    }
+
+    const newDuplicatedElements = [...duplicatedElements, element];
+    setDuplicatedElements(newDuplicatedElements);
   };
 
   const handleElementDelete = (elementId: string) => {
-    setDeletedElements((prev) => [...prev, elementId]);
+    if (onElementDelete) {
+      onElementDelete(elementId);
+    }
+
+    const newDeletedElements = [...deletedElements, elementId];
+    setDeletedElements(newDeletedElements);
   };
 
-  const handleAddElement = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string) => {
-    const newElement = {
-      _id: generateTempId(),
+  useEffect(() => {
+    console.log('AuditForm - templateElements updated:', JSON.stringify({
+      length: templateElements.length,
+      sample: templateElements.slice(0, 2),
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }, [templateElements]);
+
+  const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
+    console.log('AuditForm handleElementAdd - Called with:', JSON.stringify({
       sectionId,
       categoryId,
       subCategoryId,
-      isDefault: false,
       name,
-      templateVersion: [audit.templateVersion] as const,
-      positionByVersion: [templateElements.length + 1] as const,
-      createdAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: 0
-      },
-      updatedAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: 0
-      }
-    };
+      position,
+      templateElementsLength: templateElements.length
+    }, null, 2));
 
-    templateElements.push(newElement);
+    if (onElementAdd) {
+      onElementAdd(sectionId, categoryId, subCategoryId, name, position);
+    }
   };
+
+  React.useEffect(() => {
+    console.log('AuditForm templateElements changed:', JSON.stringify({
+      length: templateElements.length,
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }, [templateElements]);
 
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
-    // Implement PDF generation based on template version
     doc.save(`audit-${building.name}-${audit.year}.pdf`);
   };
 
@@ -106,7 +132,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
               templateElements={templateElements}
               allTemplateElements={allTemplateElements}
               templateVersion={audit.templateVersion}
-              onSelect={handleAddElement}
+              onSelect={handleElementAdd}
             />
           </div>
           <button
@@ -202,11 +228,12 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       <AddElementModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onAdd={handleAddElement}
+        onAdd={handleElementAdd}
         sections={sections}
         categories={categories}
         subCategories={subCategories}
-        templateVersion={audit.templateVersion}
+        templateVersion={audit?.templateVersion || 1}
+        templateElements={templateElements}
       />
     </div>
   );

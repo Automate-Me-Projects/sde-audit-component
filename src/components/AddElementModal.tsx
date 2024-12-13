@@ -1,16 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { Section, Category, SubCategory } from '../types';
+import { Section, Category, SubCategory, TemplateElement } from '../types';
 
 interface AddElementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string) => void;
+  onAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
   sections: Section[];
   categories: Category[];
   subCategories: SubCategory[];
   templateVersion: number;
+  templateElements: TemplateElement[];
 }
 
 export const AddElementModal: React.FC<AddElementModalProps> = ({
@@ -21,11 +22,20 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   categories = [],
   subCategories = [],
   templateVersion,
+  templateElements = [],
 }) => {
   const [selectedSection, setSelectedSection] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
   const [elementName, setElementName] = useState<string>('');
+
+  useEffect(() => {
+    console.log('AddElementModal - templateElements prop received:', JSON.stringify({
+      length: templateElements.length,
+      sample: templateElements.slice(0, 2),
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }, [templateElements]);
 
   const filteredCategories = templateVersion === 2
     ? (categories || []).filter(c => c.section === selectedSection)
@@ -34,11 +44,50 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory);
 
   const handleAdd = () => {
+    console.log('AddElementModal handleAdd - Starting with:', JSON.stringify({
+      selectedSection,
+      selectedCategory,
+      selectedSubCategory,
+      templateVersion,
+      elementName,
+      templateElementsLength: templateElements.length
+    }, null, 2));
+
+    // Filter elements with matching category and subcategory
+    const matchingElements = templateElements.filter(el => {
+      const categoryMatch = el.categoryId === selectedCategory;
+      const subCategoryMatch = selectedSubCategory ? el.subCategoryId === selectedSubCategory : !el.subCategoryId;
+      const versionMatch = el.templateVersion.includes(templateVersion);
+      
+      return categoryMatch && subCategoryMatch && versionMatch;
+    });
+
+    console.log('AddElementModal - All template elements:', JSON.stringify(templateElements.map(el => ({
+      id: el._id,
+      name: el.name,
+      categoryId: el.categoryId,
+      subCategoryId: el.subCategoryId,
+      sectionId: el.sectionId,
+      templateVersion: el.templateVersion,
+      positionByVersion: el.positionByVersion
+    })), null, 2));
+
+    // Find highest position
+    const highestPosition = matchingElements.reduce((max, el) => {
+      const pos = el.positionByVersion[el.positionByVersion.length - 1];
+      return pos > max ? pos : max;
+    }, 0);
+
+    const newPosition = highestPosition + 1;
+
+    console.log('AddElementModal - Final new element position:', newPosition);
+
     onAdd(
       templateVersion === 2 ? selectedSection : null,
       selectedCategory,
       selectedSubCategory || null,
-      elementName
+      elementName,
+      newPosition
     );
     onClose();
     // Reset form
