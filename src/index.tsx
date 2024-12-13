@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
@@ -66,170 +66,23 @@ export const AuditFormComponent: FC = () => {
     description: 'The images array',
   }) as unknown as [Image[], (value: Image[]) => void];
 
-  // Event-related state
-  const [changedElement, setChangedElement] = Retool.useStateObject({
-    name: 'changedElement',
-    description: 'Last changed element data',
+  const [changedElements, setChangedElements] = Retool.useStateArray({
+    name: 'changedElements',
+    description: 'Array of changed elements',
     inspector: 'hidden',
-  });
+  }) as unknown as [any[], (value: any[]) => void];
 
-  const [duplicatedElement, setDuplicatedElement] = Retool.useStateObject({
-    name: 'duplicatedElement',
-    description: 'Last duplicated element data',
+  const [duplicatedElements, setDuplicatedElements] = Retool.useStateArray({
+    name: 'duplicatedElements',
+    description: 'Array of duplicated elements',
     inspector: 'hidden',
-  });
+  }) as unknown as [any[], (value: any[]) => void];
 
-  const [deletedElementId, setDeletedElementId] = Retool.useStateString({
-    name: 'deletedElementId',
-    description: 'Last deleted element ID',
+  const [deletedElements, setDeletedElements] = Retool.useStateArray({
+    name: 'deletedElements',
+    description: 'Array of deleted element IDs',
     inspector: 'hidden',
-  });
-
-  // Event callbacks
-  const onElementChangeEvent = Retool.useEventCallback({ name: 'elementChange' });
-  const onElementDuplicateEvent = Retool.useEventCallback({ name: 'elementDuplicate' });
-  const onElementDeleteEvent = Retool.useEventCallback({ name: 'elementDelete' });
-
-  const triggerEvent = (eventName: string, data: any) => {
-    switch (eventName) {
-      case 'onElementChange':
-        onElementChangeEvent(data);
-        break;
-      case 'onElementDelete':
-        onElementDeleteEvent(data);
-        break;
-      case 'onElementAdd':
-        onElementDuplicateEvent(data);
-        break;
-      default:
-        console.error(`Unknown event name: ${eventName}`);
-    }
-  };
-
-  const handleElementChange = (elementId: string, field: string, value: any) => {
-    console.log('Index handleElementChange:', JSON.stringify({ elementId, field, value }, null, 2));
-
-    // First trigger the Retool event
-    console.log('Index handleElementChange - Triggering Retool event');
-    triggerEvent('onElementChange', { elementId, field, value });
-
-    // Then update local state
-    const updatedElements = auditElements.map(element =>
-      element.templateElementId === elementId ? { ...element, [field]: value } : element
-    );
-    console.log('Index handleElementChange - Updating local state with:', JSON.stringify(updatedElements.length, null, 2), 'elements');
-    setAuditElements(updatedElements);
-  };
-
-  const [lastUpdateTime, setLastUpdateTime] = useState(new Date().toISOString());
-
-  const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
-    const timestamp = new Date().toISOString();
-    const currentTemplateVersion = audit?.templateVersion || 1;
-
-    const newElement = {
-      _id: `new_element_${timestamp}`,
-      name,
-      sectionId,
-      categoryId,
-      subCategoryId,
-      isDefault: false,
-      createdAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      },
-      updatedAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      },
-      positionByVersion: [position],
-      templateVersion: [currentTemplateVersion]
-    };
-
-    // First trigger Retool event
-    triggerEvent('onElementAdd', { element: newElement });
-
-    // Then update local state
-    // Insert the new element at its correct position
-    const updatedElements = [...templateElements];
-    const insertIndex = updatedElements.findIndex(el => {
-      if (el.categoryId !== categoryId) return false;
-      if (el.subCategoryId !== subCategoryId) return false;
-      if (el.sectionId !== sectionId) return false;
-      
-      const elIndex = el.templateVersion.indexOf(currentTemplateVersion);
-      if (elIndex === -1) return false;
-      
-      return el.positionByVersion[elIndex] > position;
-    });
-
-    if (insertIndex === -1) {
-      updatedElements.push(newElement);
-    } else {
-      updatedElements.splice(insertIndex, 0, newElement);
-    }
-
-    setTemplateElements(updatedElements);
-    setLastUpdateTime(timestamp);
-  };
-
-  const handleElementDuplicate = (element: any) => {
-    console.log('Index handleElementDuplicate - Element:', JSON.stringify(element, null, 2));
-
-    const timestamp = new Date().toISOString();
-    const newElement = {
-      ...element,
-      _id: `${element._id}_duplicate_${timestamp}`,
-      isDefault: false,
-      createdAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      },
-      updatedAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      }
-    };
-
-    console.log('Index handleElementDuplicate - Created new element:', JSON.stringify(newElement, null, 2));
-
-    // First trigger the Retool event
-    console.log('Index handleElementDuplicate - Triggering Retool event');
-    triggerEvent('onElementAdd', { element: newElement });
-
-    // Then update local state
-    const newTemplateElements = [...templateElements, newElement];
-    console.log('Index handleElementDuplicate - Updating local state with:', JSON.stringify(newTemplateElements.length, null, 2), 'elements');
-    setTemplateElements(newTemplateElements);
-  };
-
-  const handleElementDelete = (elementId: string) => {
-    console.log('Index handleElementDelete - Element ID:', elementId);
-
-    // First trigger the Retool event
-    console.log('Index handleElementDelete - Triggering Retool event');
-    triggerEvent('onElementDelete', { elementId });
-
-    // Then update local state
-    const newTemplateElements = templateElements.filter(element => element._id !== elementId);
-    console.log('Index handleElementDelete - Updating local state with:', JSON.stringify(newTemplateElements.length, null, 2), 'elements');
-    setTemplateElements(newTemplateElements);
-  };
-
-  useEffect(() => {
-    console.log('🔄 Index useEffect - templateElements changed:', JSON.stringify({
-      length: templateElements.length,
-      lastUpdateTime
-    }, null, 2));
-  }, [templateElements, lastUpdateTime]);
-
-  React.useEffect(() => {
-    console.log('🔄 Index state changed:', JSON.stringify({
-      templateElements: templateElements.length,
-      lastUpdateTime,
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements, lastUpdateTime]);
+  }) as unknown as [string[], (value: string[]) => void];
 
   return (
     <div className="retool-component">
@@ -244,10 +97,6 @@ export const AuditFormComponent: FC = () => {
         auditElements={auditElements}
         regulatories={regulatories}
         images={images}
-        onElementChange={handleElementChange}
-        onElementDuplicate={handleElementDuplicate}
-        onElementDelete={handleElementDelete}
-        onElementAdd={handleElementAdd}
       />
     </div>
   );
