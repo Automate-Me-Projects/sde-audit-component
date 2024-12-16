@@ -134,4 +134,8 @@ export interface AuditFormProps {
   auditElements: AuditElement[];
   regulatories: Regulatory[];
   images: Image[];
+  onElementChange?: (elementId: string, field: string, value: any) => void;
+  onElementDuplicate?: (element: TemplateElement) => void;
+  onElementDelete?: (elementId: string) => void;
+  onElementAdd?: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }

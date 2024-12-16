@@ -4,7 +4,7 @@
   "private": true,
   "dependencies": {
     "@headlessui/react": "^1.7.18",
-    "@tryretool/custom-component-support": "^1.2.0",
+    "@tryretool/custom-component-support": "^1.4.0",
     "jspdf": "^2.5.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.358.0",

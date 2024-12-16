@@ -23,6 +23,7 @@ interface AuditElementsProps {
   onElementChange: (elementId: string, field: string, value: any) => void;
   onElementDuplicate: (element: TemplateElement) => void;
   onElementDelete: (elementId: string) => void;
+  onElementAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }
 
 export const AuditElements: React.FC<AuditElementsProps> = ({
@@ -37,6 +38,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   onElementChange,
   onElementDuplicate,
   onElementDelete,
+  onElementAdd,
 }) => {
   const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string) => {
     const regulatory = regulatories.find(
@@ -154,13 +156,19 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
-                  onClick={() => onElementDelete(element._id)}
+                  onClick={() => {
+                    console.log('Delete button clicked for element:', element._id);
+                    onElementDelete(element._id);
+                  }}
                   className="text-red-500 hover:text-red-700"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => onElementDuplicate(element)}
+                  onClick={() => {
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
+                    onElementDuplicate(element);
+                  }}
                   className="text-green-500 hover:text-green-700"
                 >
                   <Copy className="h-5 w-5" />
@@ -173,9 +181,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <textarea
                 value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'constat', e.target.value)
-                }
+                onChange={(e) => {
+                  onElementChange(element._id, 'constat', e.target.value);
+                }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
@@ -197,9 +205,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'actionType', e.target.value)
-                  }
+                  onChange={(e) => {
+                    onElementChange(element._id, 'actionType', e.target.value);
+                  }}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -215,9 +223,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <textarea
                 value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'action', e.target.value)
-                }
+                onChange={(e) => {
+                  onElementChange(element._id, 'action', e.target.value);
+                }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
@@ -225,9 +233,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'actionOwner', e.target.value)
-                  }
+                  onChange={(e) => {
+                    onElementChange(element._id, 'actionOwner', e.target.value);
+                  }}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
@@ -268,13 +276,19 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
-                  onClick={() => onElementDelete(element._id)}
+                  onClick={() => {
+                    console.log('Delete button clicked for element:', element._id);
+                    onElementDelete(element._id);
+                  }}
                   className="text-red-500 hover:text-red-700"
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={() => onElementDuplicate(element)}
+                  onClick={() => {
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
+                    onElementDuplicate(element);
+                  }}
                   className="text-green-500 hover:text-green-700"
                 >
                   <Copy className="h-5 w-5" />
@@ -287,9 +301,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <textarea
                 value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'constat', e.target.value)
-                }
+                onChange={(e) => {
+                  onElementChange(element._id, 'constat', e.target.value);
+                }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
@@ -311,9 +325,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'actionType', e.target.value)
-                  }
+                  onChange={(e) => {
+                    onElementChange(element._id, 'actionType', e.target.value);
+                  }}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -329,9 +343,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <textarea
                 value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
-                onChange={(e) =>
-                  onElementChange(element._id, 'action', e.target.value)
-                }
+                onChange={(e) => {
+                  onElementChange(element._id, 'action', e.target.value);
+                }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
               />
@@ -339,9 +353,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               <div>
                 <select
                   value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) =>
-                    onElementChange(element._id, 'actionOwner', e.target.value)
-                  }
+                  onChange={(e) => {
+                    onElementChange(element._id, 'actionOwner', e.target.value);
+                  }}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
