@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Section, Category, SubCategory, TemplateElement } from '../types';
@@ -29,14 +29,6 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
   const [elementName, setElementName] = useState<string>('');
 
-  useEffect(() => {
-    console.log('AddElementModal - templateElements prop received:', JSON.stringify({
-      length: templateElements.length,
-      sample: templateElements.slice(0, 2),
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
-
   const filteredCategories = templateVersion === 2
     ? (categories || []).filter(c => c.section === selectedSection?._id)
     : categories || [];
@@ -44,11 +36,6 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory?._id);
 
   const handleCategorySelect = (category: Category) => {
-    console.log('🔍 AddElementModal handleCategorySelect - Selected category:', {
-      id: category._id,
-      name: category.name
-    });
-
     setSelectedCategory(category);
     setSelectedSubCategory(null);
     setSelectedSection(null);
@@ -56,25 +43,12 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   };
 
   const handleSubCategorySelect = (subCategory: SubCategory) => {
-    console.log('🔍 AddElementModal handleSubCategorySelect - Selected subcategory:', {
-      id: subCategory._id,
-      name: subCategory.name,
-      categoryId: selectedCategory?._id
-    });
-
     setSelectedSubCategory(subCategory);
     setSelectedSection(null);
     setElementName('');
   };
 
   const handleSectionSelect = (section: Section) => {
-    console.log('🔍 AddElementModal handleSectionSelect - Selected section:', {
-      id: section._id,
-      name: section.name,
-      categoryId: selectedCategory?._id,
-      subCategoryId: selectedSubCategory?._id
-    });
-
     setSelectedSection(section);
     setElementName('');
   };
@@ -85,20 +59,32 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
       return;
     }
 
-    console.log('🔍 AddElementModal handleAddElement - Adding element:', {
-      categoryId: selectedCategory._id,
-      subCategoryId: selectedSubCategory?._id,
-      sectionId: selectedSection?._id,
-      name: elementName,
-      position: templateElements.length
+    // Filter elements with the same categoryId and subCategoryId
+    const relatedElements = templateElements.filter(el => {
+      const categoryMatches = el.categoryId === selectedCategory._id;
+      
+      // Helper function to check if a subCategoryId is effectively empty
+      const isEmptySubCategory = (id: string | null | undefined) => 
+        id === null || id === '' || id === undefined;
+      
+      // If we're adding with a subCategory, match exactly
+      // If we're adding without a subCategory, match any empty subCategory value
+      const subCategoryMatches = selectedSubCategory?._id 
+        ? el.subCategoryId === selectedSubCategory._id
+        : isEmptySubCategory(el.subCategoryId);
+      
+      return categoryMatches && subCategoryMatches;
     });
+
+    // Calculate position as the count of related elements + 1
+    const position = relatedElements.length + 1;
 
     onAdd(
       selectedSection?._id || null,
       selectedCategory._id,
       selectedSubCategory?._id || null,
       elementName,
-      templateElements.length
+      position
     );
 
     // Reset form
