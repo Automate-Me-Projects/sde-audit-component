@@ -143,16 +143,10 @@ export const AuditFormComponent: FC = () => {
         break;
       case 'onElementAdd':
         console.log('🔍 Index - Setting newElement with raw data:', data);
-        const elementData = {
-          name: data.element.name,
-          categoryId: data.element.categoryId,
-          subCategoryId: data.element.subCategoryId,
-          positionByVersion: data.element.positionByVersion,
-          templateVersion: data.element.templateVersion,
-          sectionId: data.element.sectionId
-        };
-        console.log('🔍 Index - Setting newElement state to:', elementData);
-        setNewElement(elementData);
+        if (data.element) {
+          setNewElement(data.element);
+          console.log('🔍 Index - Setting newElement state to:', data.element);
+        }
         onElementAdd();
         break;
       case 'onTemplateElementAdd':
@@ -255,23 +249,16 @@ export const AuditFormComponent: FC = () => {
     triggerEvent('onTemplateElementAdd', { element: retoolData });
   };
 
-  const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
-    console.log('🔍 Index handleElementAdd - Creating element:', {
-      sectionId,
-      categoryId,
-      subCategoryId,
-      name,
-      position
-    });
+  const handleElementAdd = (elementData: any) => {
+    console.log('🔍 Index handleElementAdd - Creating element:', elementData);
 
     // Create the element with the correct structure
     const newElement = {
-      name,
-      categoryId,
-      subCategoryId,
-      positionByVersion: [position],
-      templateVersion: [audit.templateVersion],
-      sectionId
+      name: elementData.name,
+      categoryId: elementData.categoryId,
+      subCategoryId: elementData.subCategoryId,
+      positionByVersion: elementData.positionByVersion,
+      templateVersion: [audit.templateVersion]
     };
 
     console.log('🔍 Index handleElementAdd - Setting newElement:', newElement);

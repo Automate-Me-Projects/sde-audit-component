@@ -9,7 +9,6 @@ import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import { ImageGallery } from './ImageGallery';
-import { generateTempId } from '../utils';
 import type { AuditFormProps, TemplateElement } from '../types';
 
 export const AuditForm: React.FC<AuditFormProps> = ({
@@ -34,6 +33,9 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   const [duplicatedElements, setDuplicatedElements] = useState<Array<any>>([]);
   const [deletedElements, setDeletedElements] = useState<Array<string>>([]);
   const [templateVersion, setTemplateVersion] = useState(audit.templateVersion);
+
+  // Helper function to generate a temporary ID
+  const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
@@ -88,16 +90,11 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       onElementAdd: !!onElementAdd
     });
 
-    // Validate required fields
-    if (!categoryId) {
-      console.error('🚨 AuditForm handleElementAdd - Missing categoryId');
-      return;
-    }
-
     // Create new template element with required fields
     if (onTemplateElementAdd) {
       // Prepare data for Retool
       const retoolData = {
+        _id: generateTempId(),
         categoryId,
         subCategoryId,
         name,
@@ -119,16 +116,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           name: {
             value: retoolData.name,
             type: typeof retoolData.name
-          },
-          positionByVersion: {
-            value: retoolData.positionByVersion,
-            type: typeof retoolData.positionByVersion,
-            isArray: Array.isArray(retoolData.positionByVersion)
-          },
-          templateVersion: {
-            value: retoolData.templateVersion,
-            type: typeof retoolData.templateVersion,
-            isArray: Array.isArray(retoolData.templateVersion)
           }
         }
       });
@@ -136,9 +123,10 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       onTemplateElementAdd(retoolData);
     }
 
-    // Call existing onElementAdd for backward compatibility
+    // If we have an onElementAdd callback, call it with the element data
     if (onElementAdd) {
       const elementData = {
+        _id: generateTempId(),
         name,
         categoryId,
         subCategoryId,
@@ -147,7 +135,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       };
 
       console.log('🔍 AuditForm - Calling onElementAdd with elementData:', elementData);
-      // Send the data directly without nesting
       onElementAdd(elementData);
     }
   };
