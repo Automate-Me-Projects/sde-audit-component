@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import {
@@ -10,6 +10,7 @@ import {
   Regulatory
 } from '../types';
 import { sortTemplateElements } from '../utils';
+import debounce from 'lodash/debounce';
 
 interface AuditElementsProps {
   sections: Section[];
@@ -40,6 +41,34 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   onElementDelete,
   onElementAdd,
 }) => {
+  const [localState, setLocalState] = React.useState<{[key: string]: string}>({});
+
+  const debouncedElementChange = useCallback(
+    debounce((elementId: string, field: string, value: any) => {
+      onElementChange(elementId, field, value);
+    }, 300),
+    [onElementChange]
+  );
+
+  const handleTextChange = (elementId: string, field: string, value: string) => {
+    // Update local state immediately
+    setLocalState(prev => ({
+      ...prev,
+      [`${elementId}-${field}`]: value
+    }));
+    // Debounce the actual change
+    debouncedElementChange(elementId, field, value);
+  };
+
+  const getLocalValue = (elementId: string, field: string) => {
+    const localValue = localState[`${elementId}-${field}`];
+    if (localValue !== undefined) {
+      return localValue;
+    }
+    const auditElement = auditElements.find(ae => ae._id === elementId || ae.templateElementId === elementId);
+    return auditElement ? (auditElement as any)[field] || '' : '';
+  };
+
   const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string) => {
     const regulatory = regulatories.find(
       r =>
@@ -180,9 +209,10 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
+                value={getLocalValue(element._id, 'constat')}
                 onChange={(e) => {
-                  onElementChange(element._id, 'constat', e.target.value);
+                  const value = e.target.value;
+                  handleTextChange(element._id, 'constat', value);
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -190,7 +220,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
                   onChange={(value) => onElementChange(element._id, 'status', value)}
                   options={[
                     'Conforme',
@@ -204,10 +234,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => {
-                    onElementChange(element._id, 'actionType', e.target.value);
-                  }}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -222,9 +250,10 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
+                value={getLocalValue(element._id, 'action')}
                 onChange={(e) => {
-                  onElementChange(element._id, 'action', e.target.value);
+                  const value = e.target.value;
+                  handleTextChange(element._id, 'action', value);
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -232,10 +261,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => {
-                    onElementChange(element._id, 'actionOwner', e.target.value);
-                  }}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
@@ -300,9 +327,10 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.constat || ''}
+                value={getLocalValue(element._id, 'constat')}
                 onChange={(e) => {
-                  onElementChange(element._id, 'constat', e.target.value);
+                  const value = e.target.value;
+                  handleTextChange(element._id, 'constat', value);
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -310,7 +338,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.status || ''}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
                   onChange={(value) => onElementChange(element._id, 'status', value)}
                   options={[
                     'Conforme',
@@ -324,10 +352,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => {
-                    onElementChange(element._id, 'actionType', e.target.value);
-                  }}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -342,9 +368,10 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={auditElements.find(ae => ae.templateElementId === element._id)?.action || ''}
+                value={getLocalValue(element._id, 'action')}
                 onChange={(e) => {
-                  onElementChange(element._id, 'action', e.target.value);
+                  const value = e.target.value;
+                  handleTextChange(element._id, 'action', value);
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -352,10 +379,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => {
-                    onElementChange(element._id, 'actionOwner', e.target.value);
-                  }}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>

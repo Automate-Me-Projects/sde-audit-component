@@ -81,7 +81,7 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
               <span className="block truncate">
                 {selectedElement
                   ? getHierarchyPath(selectedElement, categories, subCategories, sections, templateVersion)
-                  : "Select an element"}
+                  : "Sélectionner un élément"}
               </span>
               <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                 <ChevronsUpDownIcon

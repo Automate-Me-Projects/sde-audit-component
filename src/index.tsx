@@ -85,6 +85,27 @@ export const AuditFormComponent: FC = () => {
     inspector: 'hidden',
   });
 
+  const [changedElements, setChangedElements] = Retool.useStateArray({
+    name: 'changedElements',
+    description: 'Array of changed elements',
+  }) as unknown as [Array<{ elementId: string; field: string; value: any }>, (value: Array<{ elementId: string; field: string; value: any }>) => void];
+
+  // Additional state for event data
+  const [lastElementChange, setLastElementChange] = Retool.useStateObject({
+    name: 'lastElementChange',
+    description: 'Last element change data'
+  }) as unknown as [any, (value: any) => void];
+
+  const [newElement, setNewElement] = Retool.useStateObject({
+    name: 'newElement',
+    description: 'New element data'
+  }) as unknown as [any, (value: any) => void];
+
+  const [elementToDuplicate, setElementToDuplicate] = Retool.useStateObject({
+    name: 'elementToDuplicate',
+    description: 'Element to duplicate'
+  }) as unknown as [any, (value: any) => void];
+
   // Event callbacks
   const onElementChange = Retool.useEventCallback({ name: 'elementChange' });
   const onElementDuplicate = Retool.useEventCallback({ name: 'elementDuplicate' });
@@ -92,17 +113,40 @@ export const AuditFormComponent: FC = () => {
   const onElementAdd = Retool.useEventCallback({ name: 'elementAdd' });
 
   const triggerEvent = (eventName: string, data: any) => {
+    console.log('🎯 Triggering event:', JSON.stringify({ eventName, data }, null, 2));
+    
+    // Update changedElements first if it's an element change
+    if (eventName === 'onElementChange') {
+      const newChangedElement = { elementId: data.elementId, field: data.field, value: data.value };
+      setChangedElements([...changedElements, newChangedElement]);
+    }
+
+    // Set relevant state before triggering the event
     switch (eventName) {
       case 'onElementChange':
+        setLastElementChange({
+          elementId: data.elementId,
+          field: data.field,
+          value: data.value
+        });
         onElementChange();
         break;
       case 'onElementDelete':
+        setDeletedElementId(data.elementId);
         onElementDelete();
         break;
       case 'onElementAdd':
+        setNewElement({
+          sectionId: data.sectionId,
+          categoryId: data.categoryId,
+          subCategoryId: data.subCategoryId,
+          name: data.name,
+          position: data.position
+        });
         onElementAdd();
         break;
       case 'onElementDuplicate':
+        setElementToDuplicate(data);
         onElementDuplicate();
         break;
       default:
@@ -111,21 +155,93 @@ export const AuditFormComponent: FC = () => {
   };
 
   const handleElementChange = (elementId: string, field: string, value: any) => {
-    console.log('Index handleElementChange:', JSON.stringify({ elementId, field, value }, null, 2));
+    console.log('🔍 Index handleElementChange - Input:', JSON.stringify({ 
+      elementId, 
+      field, 
+      value,
+      currentAuditElements: auditElements.length,
+      auditElementsSample: auditElements.slice(0, 2)
+    }, null, 2));
 
-    // First trigger the Retool event
-    console.log('Index handleElementChange - Triggering Retool event');
-    triggerEvent('onElementChange', { elementId, field, value });
+    // First trigger the Retool event with the change data
+    const changeData = { elementId, field, value };
+    console.log('🔄 Index handleElementChange - Triggering Retool event with data:', JSON.stringify(changeData, null, 2));
+    triggerEvent('onElementChange', changeData);
 
     // Then update local state
-    const updatedElements = auditElements.map(element =>
-      element.templateElementId === elementId ? { ...element, [field]: value } : element
-    );
-    console.log('Index handleElementChange - Updating local state with:', JSON.stringify(updatedElements.length, null, 2), 'elements');
+    const updatedElements = auditElements.map(element => {
+      // Check if this is the element we want to update
+      if (element._id === elementId || element.templateElementId === elementId) {
+        // Create updated element with new value
+        const updatedElement = { ...element, [field]: value };
+        console.log('✏️ Updating element:', JSON.stringify({
+          elementId,
+          before: element,
+          after: updatedElement,
+          field,
+          value
+        }, null, 2));
+        return updatedElement;
+      }
+      return element;
+    });
+
+    console.log('📊 Index handleElementChange - State update details:', JSON.stringify({
+      totalElements: updatedElements.length,
+      originalElements: auditElements.length,
+      matchingElement: auditElements.find(el => el._id === elementId || el.templateElementId === elementId),
+      updatedElement: updatedElements.find(el => el._id === elementId || el.templateElementId === elementId),
+      elementId,
+      field,
+      value
+    }, null, 2));
+    
     setAuditElements(updatedElements);
   };
 
-  const [lastUpdateTime, setLastUpdateTime] = useState(new Date().toISOString());
+  useEffect(() => {
+    console.log('👀 AuditElements changed:', JSON.stringify({
+      length: auditElements.length,
+      sample: auditElements.slice(0, 2),
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }, [auditElements]);
+
+  useEffect(() => {
+    // Initialize auditElements if empty
+    if ((!auditElements || auditElements.length === 0) && 
+        Array.isArray(templateElements) && templateElements.length > 0 &&
+        audit && audit.id) {
+      console.log('🔄 Initializing auditElements from templateElements:', {
+        templateElementsLength: templateElements.length,
+        templateElementsSample: templateElements.slice(0, 2)
+      });
+      
+      const initialAuditElements: AuditElement[] = templateElements.map((element) => ({
+        _id: element._id,
+        templateElementId: element._id,
+        auditId: audit.id,
+        categoryId: element.categoryId,
+        subCategoryId: element.subCategoryId || '',
+        name: element.name,
+        positionByVersion: element.positionByVersion,
+        constat: '',
+        status: '',
+        action: '',
+        actionType: '',
+        actionOwner: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      console.log('✅ Created initialAuditElements:', {
+        length: initialAuditElements.length,
+        sample: initialAuditElements.slice(0, 2)
+      });
+
+      setAuditElements(initialAuditElements);
+    }
+  }, [templateElements, auditElements, audit]);
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
     const timestamp = new Date().toISOString();
@@ -174,7 +290,6 @@ export const AuditFormComponent: FC = () => {
     }
 
     setTemplateElements(updatedElements);
-    setLastUpdateTime(timestamp);
   };
 
   const handleElementDuplicate = (element: any) => {
@@ -219,6 +334,8 @@ export const AuditFormComponent: FC = () => {
     console.log('Index handleElementDelete - Updating local state with:', JSON.stringify(newTemplateElements.length, null, 2), 'elements');
     setTemplateElements(newTemplateElements);
   };
+
+  const [lastUpdateTime, setLastUpdateTime] = useState(new Date().toISOString());
 
   useEffect(() => {
     console.log('🔄 Index useEffect - templateElements changed:', JSON.stringify({
