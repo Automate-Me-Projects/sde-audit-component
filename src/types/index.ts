@@ -138,4 +138,11 @@ export interface AuditFormProps {
   onElementDuplicate?: (element: TemplateElement) => void;
   onElementDelete?: (elementId: string) => void;
   onElementAdd?: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
+  onTemplateElementAdd?: (data: {
+    categoryId: string;
+    subCategoryId: string | null;
+    name: string;
+    positionByVersion: number[];
+    templateVersion: number[];
+  }) => void;
 }

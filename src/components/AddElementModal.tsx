@@ -24,9 +24,9 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   templateVersion,
   templateElements = [],
 }) => {
-  const [selectedSection, setSelectedSection] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
+  const [selectedSection, setSelectedSection] = useState<Section | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
   const [elementName, setElementName] = useState<string>('');
 
   useEffect(() => {
@@ -38,63 +38,75 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   }, [templateElements]);
 
   const filteredCategories = templateVersion === 2
-    ? (categories || []).filter(c => c.section === selectedSection)
+    ? (categories || []).filter(c => c.section === selectedSection?._id)
     : categories || [];
 
-  const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory);
+  const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory?._id);
 
-  const handleAdd = () => {
-    console.log('AddElementModal handleAdd - Starting with:', JSON.stringify({
-      selectedSection,
-      selectedCategory,
-      selectedSubCategory,
-      templateVersion,
-      elementName,
-      templateElementsLength: templateElements.length
-    }, null, 2));
-
-    // Filter elements with matching category and subcategory
-    const matchingElements = templateElements.filter(el => {
-      const categoryMatch = el.categoryId === selectedCategory;
-      const subCategoryMatch = selectedSubCategory ? el.subCategoryId === selectedSubCategory : !el.subCategoryId;
-      const versionMatch = el.templateVersion.includes(templateVersion);
-      
-      return categoryMatch && subCategoryMatch && versionMatch;
+  const handleCategorySelect = (category: Category) => {
+    console.log('🔍 AddElementModal handleCategorySelect - Selected category:', {
+      id: category._id,
+      name: category.name
     });
 
-    console.log('AddElementModal - All template elements:', JSON.stringify(templateElements.map(el => ({
-      id: el._id,
-      name: el.name,
-      categoryId: el.categoryId,
-      subCategoryId: el.subCategoryId,
-      sectionId: el.sectionId,
-      templateVersion: el.templateVersion,
-      positionByVersion: el.positionByVersion
-    })), null, 2));
+    setSelectedCategory(category);
+    setSelectedSubCategory(null);
+    setSelectedSection(null);
+    setElementName('');
+  };
 
-    // Find highest position
-    const highestPosition = matchingElements.reduce((max, el) => {
-      const pos = el.positionByVersion[el.positionByVersion.length - 1];
-      return pos > max ? pos : max;
-    }, 0);
+  const handleSubCategorySelect = (subCategory: SubCategory) => {
+    console.log('🔍 AddElementModal handleSubCategorySelect - Selected subcategory:', {
+      id: subCategory._id,
+      name: subCategory.name,
+      categoryId: selectedCategory?._id
+    });
 
-    const newPosition = highestPosition + 1;
+    setSelectedSubCategory(subCategory);
+    setSelectedSection(null);
+    setElementName('');
+  };
 
-    console.log('AddElementModal - Final new element position:', newPosition);
+  const handleSectionSelect = (section: Section) => {
+    console.log('🔍 AddElementModal handleSectionSelect - Selected section:', {
+      id: section._id,
+      name: section.name,
+      categoryId: selectedCategory?._id,
+      subCategoryId: selectedSubCategory?._id
+    });
+
+    setSelectedSection(section);
+    setElementName('');
+  };
+
+  const handleAddElement = () => {
+    if (!selectedCategory) {
+      console.error('🚨 AddElementModal handleAddElement - No category selected');
+      return;
+    }
+
+    console.log('🔍 AddElementModal handleAddElement - Adding element:', {
+      categoryId: selectedCategory._id,
+      subCategoryId: selectedSubCategory?._id,
+      sectionId: selectedSection?._id,
+      name: elementName,
+      position: templateElements.length
+    });
 
     onAdd(
-      templateVersion === 2 ? selectedSection : null,
-      selectedCategory,
-      selectedSubCategory || null,
+      selectedSection?._id || null,
+      selectedCategory._id,
+      selectedSubCategory?._id || null,
       elementName,
-      newPosition
+      templateElements.length
     );
-    onClose();
+
     // Reset form
-    setSelectedSection('');
-    setSelectedCategory('');
-    setSelectedSubCategory('');
+    setSelectedCategory(null);
+    setSelectedSubCategory(null);
+    setSelectedSection(null);
     setElementName('');
+    onClose();
   };
 
   return (
@@ -122,8 +134,8 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Section</label>
                 <select
-                  value={selectedSection}
-                  onChange={(e) => setSelectedSection(e.target.value)}
+                  value={selectedSection?._id || ''}
+                  onChange={(e) => handleSectionSelect(sections.find(s => s._id === e.target.value) || null)}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">Sélectionner une section</option>
@@ -139,8 +151,8 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Catégorie</label>
               <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedCategory?._id || ''}
+                onChange={(e) => handleCategorySelect(categories.find(c => c._id === e.target.value) || null)}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une catégorie</option>
@@ -155,8 +167,8 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">Sous-catégorie</label>
               <select
-                value={selectedSubCategory}
-                onChange={(e) => setSelectedSubCategory(e.target.value)}
+                value={selectedSubCategory?._id || ''}
+                onChange={(e) => handleSubCategorySelect(subCategories.find(s => s._id === e.target.value) || null)}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une sous-catégorie</option>
@@ -189,8 +201,8 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handleAdd}
-                disabled={!selectedCategory || !elementName}
+                onClick={handleAddElement}
+                disabled={!selectedCategory}
                 className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
               >
                 Ajouter

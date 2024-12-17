@@ -26,7 +26,8 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   onElementChange,
   onElementDuplicate,
   onElementDelete,
-  onElementAdd
+  onElementAdd,
+  onTemplateElementAdd
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [changedElements, setChangedElements] = useState<Array<{ elementId: string; field: string; value: any }>>([]);
@@ -77,17 +78,77 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   }, [templateElements]);
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
-    console.log('AuditForm handleElementAdd - Called with:', JSON.stringify({
+    console.log('🔍 AuditForm handleElementAdd - Raw input:', {
       sectionId,
       categoryId,
       subCategoryId,
       name,
       position,
-      templateElementsLength: templateElements.length
-    }, null, 2));
+      onTemplateElementAdd: !!onTemplateElementAdd,
+      onElementAdd: !!onElementAdd
+    });
 
+    // Validate required fields
+    if (!categoryId) {
+      console.error('🚨 AuditForm handleElementAdd - Missing categoryId');
+      return;
+    }
+
+    // Create new template element with required fields
+    if (onTemplateElementAdd) {
+      // Prepare data for Retool
+      const retoolData = {
+        categoryId,
+        subCategoryId,
+        name,
+        positionByVersion: [position],
+        templateVersion: [audit.templateVersion]
+      };
+
+      console.log('🔍 AuditForm - Data for Retool:', {
+        data: retoolData,
+        validation: {
+          categoryId: {
+            value: retoolData.categoryId,
+            type: typeof retoolData.categoryId
+          },
+          subCategoryId: {
+            value: retoolData.subCategoryId,
+            type: typeof retoolData.subCategoryId
+          },
+          name: {
+            value: retoolData.name,
+            type: typeof retoolData.name
+          },
+          positionByVersion: {
+            value: retoolData.positionByVersion,
+            type: typeof retoolData.positionByVersion,
+            isArray: Array.isArray(retoolData.positionByVersion)
+          },
+          templateVersion: {
+            value: retoolData.templateVersion,
+            type: typeof retoolData.templateVersion,
+            isArray: Array.isArray(retoolData.templateVersion)
+          }
+        }
+      });
+
+      onTemplateElementAdd(retoolData);
+    }
+
+    // Call existing onElementAdd for backward compatibility
     if (onElementAdd) {
-      onElementAdd(sectionId, categoryId, subCategoryId, name, position);
+      const elementData = {
+        name,
+        categoryId,
+        subCategoryId,
+        positionByVersion: [position],
+        templateVersion: [audit.templateVersion]
+      };
+
+      console.log('🔍 AuditForm - Calling onElementAdd with elementData:', elementData);
+      // Send the data directly without nesting
+      onElementAdd(elementData);
     }
   };
 

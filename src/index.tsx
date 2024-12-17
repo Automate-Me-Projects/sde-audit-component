@@ -106,52 +106,68 @@ export const AuditFormComponent: FC = () => {
     description: 'Element to duplicate'
   }) as unknown as [any, (value: any) => void];
 
+  const [deletedElement, setDeletedElement] = Retool.useStateObject({
+    name: 'deletedElement',
+    description: 'Element to delete'
+  }) as unknown as [any, (value: any) => void];
+
   // Event callbacks
   const onElementChange = Retool.useEventCallback({ name: 'elementChange' });
   const onElementDuplicate = Retool.useEventCallback({ name: 'elementDuplicate' });
   const onElementDelete = Retool.useEventCallback({ name: 'elementDelete' });
   const onElementAdd = Retool.useEventCallback({ name: 'elementAdd' });
+  const onTemplateElementAdd = Retool.useEventCallback({ name: 'templateElementAdd' });
 
   const triggerEvent = (eventName: string, data: any) => {
-    console.log('🎯 Triggering event:', JSON.stringify({ eventName, data }, null, 2));
-    
-    // Update changedElements first if it's an element change
-    if (eventName === 'onElementChange') {
-      const newChangedElement = { elementId: data.elementId, field: data.field, value: data.value };
-      setChangedElements([...changedElements, newChangedElement]);
-    }
+    console.log('🎯 Triggering event:', {
+      eventName,
+      data,
+      eventScope: {
+        triggeredById: 'auditFormComponent1'
+      }
+    });
 
-    // Set relevant state before triggering the event
     switch (eventName) {
       case 'onElementChange':
-        setLastElementChange({
-          elementId: data.elementId,
-          field: data.field,
-          value: data.value
-        });
+        const newChangedElement = { elementId: data.elementId, field: data.field, value: data.value };
+        setChangedElements([...changedElements, newChangedElement]);
         onElementChange();
         break;
+      case 'onElementDuplicate':
+        setDuplicatedElement(data.element);
+        onElementDuplicate();
+        break;
       case 'onElementDelete':
-        setDeletedElementId(data.elementId);
+        setDeletedElement(data.element);
         onElementDelete();
         break;
       case 'onElementAdd':
-        setNewElement({
-          sectionId: data.sectionId,
-          categoryId: data.categoryId,
-          subCategoryId: data.subCategoryId,
-          name: data.name,
-          position: data.position
-        });
+        console.log('🔍 Index - Setting newElement with raw data:', data);
+        const elementData = {
+          name: data.element.name,
+          categoryId: data.element.categoryId,
+          subCategoryId: data.element.subCategoryId,
+          positionByVersion: data.element.positionByVersion,
+          templateVersion: data.element.templateVersion,
+          sectionId: data.element.sectionId
+        };
+        console.log('🔍 Index - Setting newElement state to:', elementData);
+        setNewElement(elementData);
         onElementAdd();
         break;
-      case 'onElementDuplicate':
-        setElementToDuplicate(data);
-        onElementDuplicate();
+      case 'onTemplateElementAdd':
+        // Data is already properly structured at this point
         break;
       default:
         console.error(`Unknown event name: ${eventName}`);
     }
+
+    // @ts-ignore
+    window.JSCode?.trigger(eventName, {
+      triggeredById: 'auditFormComponent1',
+      instance: [],
+      data
+    });
   };
 
   const handleElementChange = (elementId: string, field: string, value: any) => {
@@ -199,97 +215,69 @@ export const AuditFormComponent: FC = () => {
     setAuditElements(updatedElements);
   };
 
-  useEffect(() => {
-    console.log('👀 AuditElements changed:', JSON.stringify({
-      length: auditElements.length,
-      sample: auditElements.slice(0, 2),
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [auditElements]);
+  const handleTemplateElementAdd = (templateElement: any) => {
+    console.log('🔍 Index handleTemplateElementAdd - Received element:', templateElement);
 
-  useEffect(() => {
-    // Initialize auditElements if empty
-    if ((!auditElements || auditElements.length === 0) && 
-        Array.isArray(templateElements) && templateElements.length > 0 &&
-        audit && audit.id) {
-      console.log('🔄 Initializing auditElements from templateElements:', {
-        templateElementsLength: templateElements.length,
-        templateElementsSample: templateElements.slice(0, 2)
-      });
-      
-      const initialAuditElements: AuditElement[] = templateElements.map((element) => ({
-        _id: element._id,
-        templateElementId: element._id,
-        auditId: audit.id,
-        categoryId: element.categoryId,
-        subCategoryId: element.subCategoryId || '',
-        name: element.name,
-        positionByVersion: element.positionByVersion,
-        constat: '',
-        status: '',
-        action: '',
-        actionType: '',
-        actionOwner: '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
-
-      console.log('✅ Created initialAuditElements:', {
-        length: initialAuditElements.length,
-        sample: initialAuditElements.slice(0, 2)
-      });
-
-      setAuditElements(initialAuditElements);
+    // Validate required fields
+    if (!templateElement.categoryId) {
+      console.error('🚨 Index handleTemplateElementAdd - Missing categoryId:', templateElement);
+      return;
     }
-  }, [templateElements, auditElements, audit]);
+
+    // Update local state first
+    const newTemplateElements = [...templateElements, templateElement];
+    console.log('🔍 Index handleTemplateElementAdd - Updating state with:', {
+      currentLength: templateElements.length,
+      newLength: newTemplateElements.length,
+      newElement: {
+        id: templateElement._id,
+        categoryId: templateElement.categoryId,
+        name: templateElement.name
+      }
+    });
+
+    // Update state and force re-render
+    setTemplateElements(newTemplateElements);
+    setLastUpdateTime(new Date().toISOString());
+
+    // Format data for Retool
+    const retoolData = {
+      categoryId: templateElement.categoryId,
+      subCategoryId: templateElement.subCategoryId,
+      name: templateElement.name,
+      positionByVersion: templateElement.positionByVersion,
+      templateVersion: templateElement.templateVersion
+    };
+
+    console.log('🔍 Index handleTemplateElementAdd - Sending to Retool:', retoolData);
+
+    // Then trigger Retool event with the correct structure
+    triggerEvent('onTemplateElementAdd', { element: retoolData });
+  };
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
-    const timestamp = new Date().toISOString();
-    const currentTemplateVersion = audit?.templateVersion || 1;
-
-    const newElement = {
-      _id: `new_element_${timestamp}`,
-      name,
+    console.log('🔍 Index handleElementAdd - Creating element:', {
       sectionId,
       categoryId,
       subCategoryId,
-      isDefault: false,
-      createdAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      },
-      updatedAt: {
-        _seconds: Math.floor(Date.now() / 1000),
-        _nanoseconds: (Date.now() % 1000) * 1000000
-      },
-      positionByVersion: [position],
-      templateVersion: [currentTemplateVersion]
-    };
-
-    // First trigger Retool event
-    triggerEvent('onElementAdd', { element: newElement });
-
-    // Then update local state
-    // Insert the new element at its correct position
-    const updatedElements = [...templateElements];
-    const insertIndex = updatedElements.findIndex(el => {
-      if (el.categoryId !== categoryId) return false;
-      if (el.subCategoryId !== subCategoryId) return false;
-      if (el.sectionId !== sectionId) return false;
-      
-      const elIndex = el.templateVersion.indexOf(currentTemplateVersion);
-      if (elIndex === -1) return false;
-      
-      return el.positionByVersion[elIndex] > position;
+      name,
+      position
     });
 
-    if (insertIndex === -1) {
-      updatedElements.push(newElement);
-    } else {
-      updatedElements.splice(insertIndex, 0, newElement);
-    }
+    // Create the element with the correct structure
+    const newElement = {
+      name,
+      categoryId,
+      subCategoryId,
+      positionByVersion: [position],
+      templateVersion: [audit.templateVersion],
+      sectionId
+    };
 
-    setTemplateElements(updatedElements);
+    console.log('🔍 Index handleElementAdd - Setting newElement:', newElement);
+
+    // Trigger the event with the correct structure
+    triggerEvent('onElementAdd', { element: newElement });
   };
 
   const handleElementDuplicate = (element: any) => {
@@ -369,6 +357,7 @@ export const AuditFormComponent: FC = () => {
         onElementDuplicate={handleElementDuplicate}
         onElementDelete={handleElementDelete}
         onElementAdd={handleElementAdd}
+        onTemplateElementAdd={handleTemplateElementAdd}
       />
     </div>
   );
