@@ -118,9 +118,16 @@ export interface Image {
 }
 
 export interface ElementChange {
-  elementId: string;
-  field: string;
-  value: any;
+  auditElementId?: string;
+  templateElementId?: string;
+  categoryId?: string;
+  subCategoryId?: string | null;
+  auditId?: string;
+  constat?: string;
+  status?: string;
+  actionType?: string | null;
+  action?: string | null;
+  actionOwner?: string | null;
 }
 
 export interface AuditFormProps {
@@ -134,10 +141,9 @@ export interface AuditFormProps {
   auditElements: AuditElement[];
   regulatories: Regulatory[];
   images: Image[];
-  onElementChange?: (elementId: string, field: string, value: any) => void;
-  onElementDuplicate?: (element: TemplateElement) => void;
-  onElementDelete?: (elementId: string) => void;
-  onElementAdd?: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
+  onAuditElementChange?: (data: ElementChange) => void;
+  onAuditElementAdd?: (data: ElementChange) => void;
+  onAuditElementDelete?: (auditElementId: string) => void;
   onTemplateElementAdd?: (data: {
     categoryId: string;
     subCategoryId: string | null;

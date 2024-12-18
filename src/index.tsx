@@ -54,7 +54,14 @@ export const AuditFormComponent: FC = () => {
   const [auditElements, setAuditElements] = Retool.useStateArray({
     name: 'auditElements',
     description: 'The auditElements array',
+    defaultValue: [],
   }) as unknown as [AuditElement[], (value: AuditElement[]) => void];
+
+  const [newElement, setNewElement] = Retool.useStateObject({
+    name: 'newElement',
+    description: 'The newly added audit element',
+    defaultValue: null,
+  }) as unknown as [AuditElement | null, (value: AuditElement | null) => void];
 
   const [regulatories, setRegulatories] = Retool.useStateArray({
     name: 'regulatories',
@@ -96,11 +103,6 @@ export const AuditFormComponent: FC = () => {
     description: 'Last element change data'
   }) as unknown as [any, (value: any) => void];
 
-  const [newElement, setNewElement] = Retool.useStateObject({
-    name: 'newElement',
-    description: 'New element data'
-  }) as unknown as [any, (value: any) => void];
-
   const [elementToDuplicate, setElementToDuplicate] = Retool.useStateObject({
     name: 'elementToDuplicate',
     description: 'Element to duplicate'
@@ -112,7 +114,9 @@ export const AuditFormComponent: FC = () => {
   }) as unknown as [any, (value: any) => void];
 
   // Event callbacks
-  const onElementChange = Retool.useEventCallback({ name: 'elementChange' });
+  const onAuditElementAdd = Retool.useEventCallback({ name: 'auditElementAdd' });
+  const onAuditElementChange = Retool.useEventCallback({ name: 'auditElementChange' });
+  const onAuditElementDelete = Retool.useEventCallback({ name: 'auditElementDelete' });
   const onElementDuplicate = Retool.useEventCallback({ name: 'elementDuplicate' });
   const onElementDelete = Retool.useEventCallback({ name: 'elementDelete' });
   const onElementAdd = Retool.useEventCallback({ name: 'elementAdd' });
@@ -128,30 +132,66 @@ export const AuditFormComponent: FC = () => {
     });
 
     switch (eventName) {
-      case 'onElementChange':
-        const newChangedElement = { elementId: data.elementId, field: data.field, value: data.value };
-        setChangedElements([...changedElements, newChangedElement]);
-        onElementChange();
+      case 'onAuditElementAdd':
+        console.log('🔍 Index - Adding new audit element:', data);
+        const newAuditElement: AuditElement = {
+          _id: `temp_${Date.now()}`,
+          auditId: data.auditId,
+          templateElementId: data.templateElementId,
+          categoryId: data.categoryId,
+          subCategoryId: data.subCategoryId || '',
+          status: data.status || '',
+          constat: data.constat || '',
+          actionType: data.actionType || null,
+          action: data.action || null,
+          actionOwner: data.actionOwner || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          name: templateElements.find(te => te._id === data.templateElementId)?.name || '',
+          positionByVersion: templateElements.find(te => te._id === data.templateElementId)?.positionByVersion || []
+        };
+        
+        const currentAuditElements = Array.isArray(auditElements) ? auditElements : [];
+        console.log('📝 Index - Current auditElements state:', {
+          isArray: true,
+          length: currentAuditElements.length,
+          elements: currentAuditElements
+        });
+        
+        const updatedElements = [...currentAuditElements, newAuditElement];
+        
+        console.log('📝 Index - Setting new auditElements:', {
+          length: updatedElements.length,
+          elements: updatedElements
+        });
+        
+        setAuditElements(updatedElements);
+        setNewElement(newAuditElement);
+        onAuditElementAdd(newAuditElement);
         break;
-      case 'onElementDuplicate':
-        setDuplicatedElement(data.element);
-        onElementDuplicate();
+
+      case 'onAuditElementChange':
+        console.log('🔍 Index - Updating audit element:', data);
+        const updatedAuditElements = auditElements.map(ae => {
+          if (ae._id === data.auditElementId) {
+            return { ...ae, ...data, updatedAt: new Date().toISOString() };
+          }
+          return ae;
+        });
+        setAuditElements(updatedAuditElements);
+        onAuditElementChange();
         break;
-      case 'onElementDelete':
-        setDeletedElement(data.element);
-        onElementDelete();
+
+      case 'onAuditElementDelete':
+        console.log('🔍 Index - Deleting audit element:', data);
+        setAuditElements(auditElements.filter(ae => ae._id !== data));
+        onAuditElementDelete();
         break;
-      case 'onElementAdd':
-        console.log('🔍 Index - Setting newElement with raw data:', data);
-        if (data.element) {
-          setNewElement(data.element);
-          console.log('🔍 Index - Setting newElement state to:', data.element);
-        }
-        onElementAdd();
-        break;
+
       case 'onTemplateElementAdd':
         // Data is already properly structured at this point
         break;
+
       default:
         console.error(`Unknown event name: ${eventName}`);
     }
@@ -328,7 +368,7 @@ export const AuditFormComponent: FC = () => {
   }, [templateElements, lastUpdateTime]);
 
   return (
-    <div className="retool-component">
+    <div className="min-h-screen bg-gray-50">
       <AuditForm
         audit={audit}
         building={building}
@@ -340,10 +380,9 @@ export const AuditFormComponent: FC = () => {
         auditElements={auditElements}
         regulatories={regulatories}
         images={images}
-        onElementChange={handleElementChange}
-        onElementDuplicate={handleElementDuplicate}
-        onElementDelete={handleElementDelete}
-        onElementAdd={handleElementAdd}
+        onAuditElementAdd={(data) => triggerEvent('onAuditElementAdd', data)}
+        onAuditElementChange={(data) => triggerEvent('onAuditElementChange', data)}
+        onAuditElementDelete={(id) => triggerEvent('onAuditElementDelete', id)}
         onTemplateElementAdd={handleTemplateElementAdd}
       />
     </div>

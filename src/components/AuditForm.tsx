@@ -9,7 +9,7 @@ import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import { ImageGallery } from './ImageGallery';
-import type { AuditFormProps, TemplateElement } from '../types';
+import type { AuditFormProps, TemplateElement, ElementChange } from '../types';
 
 export const AuditForm: React.FC<AuditFormProps> = ({
   audit,
@@ -22,62 +22,81 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   auditElements,
   regulatories,
   images,
-  onElementChange,
-  onElementDuplicate,
-  onElementDelete,
-  onElementAdd,
+  onAuditElementChange,
+  onAuditElementAdd,
+  onAuditElementDelete,
   onTemplateElementAdd
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [changedElements, setChangedElements] = useState<Array<{ elementId: string; field: string; value: any }>>([]);
-  const [duplicatedElements, setDuplicatedElements] = useState<Array<any>>([]);
-  const [deletedElements, setDeletedElements] = useState<Array<string>>([]);
   const [templateVersion, setTemplateVersion] = useState(audit.templateVersion);
 
   // Helper function to generate a temporary ID
   const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  const debouncedElementChange = useCallback(
-    debounce((elementId: string, field: string, value: any) => {
-      handleElementChange(elementId, field, value);
+  const handleAuditElementChange = useCallback(
+    debounce((data: ElementChange) => {
+      if (onAuditElementChange) {
+        onAuditElementChange(data);
+      }
     }, 500),
-    []
+    [onAuditElementChange]
   );
 
-  const handleElementChange = (elementId: string, field: string, value: any) => {
-    if (onElementChange) {
-      onElementChange(elementId, field, value);
+  const handleElementDuplicate = async (element: TemplateElement) => {
+    console.log('🔄 Duplicating element:', {
+      element,
+      currentAuditElements: Array.isArray(auditElements) ? auditElements.length : 0
+    });
+    
+    // When duplicating, we create a new audit element with the same values
+    const existingAuditElement = Array.isArray(auditElements) ? 
+      auditElements.find(ae => ae.templateElementId === element._id) : 
+      undefined;
+    
+    console.log('🔍 Found existing audit element:', existingAuditElement);
+    
+    const newAuditElement: ElementChange = {
+      templateElementId: element._id,
+      categoryId: element.categoryId,
+      subCategoryId: element.subCategoryId || null,
+      constat: existingAuditElement?.constat || '',
+      status: existingAuditElement?.status || '',
+      actionType: existingAuditElement?.actionType || null,
+      action: existingAuditElement?.action || null,
+      actionOwner: existingAuditElement?.actionOwner || null,
+      auditId: audit.id
+    };
+
+    console.log('📝 Creating new audit element:', newAuditElement);
+    
+    try {
+      if (onAuditElementAdd) {
+        console.log('⏳ Calling onAuditElementAdd with:', newAuditElement);
+        await onAuditElementAdd(newAuditElement);
+        console.log('✅ Successfully called onAuditElementAdd');
+      } else {
+        console.warn('⚠️ onAuditElementAdd is not defined');
+      }
+    } catch (error) {
+      console.error('❌ Error duplicating audit element:', error);
     }
-
-    const newChangedElements = [...changedElements, { elementId, field, value }];
-    setChangedElements(newChangedElements);
-  };
-
-  const handleElementDuplicate = (element: any) => {
-    if (onElementDuplicate) {
-      onElementDuplicate(element);
-    }
-
-    const newDuplicatedElements = [...duplicatedElements, element];
-    setDuplicatedElements(newDuplicatedElements);
-  };
-
-  const handleElementDelete = (elementId: string) => {
-    if (onElementDelete) {
-      onElementDelete(elementId);
-    }
-
-    const newDeletedElements = [...deletedElements, elementId];
-    setDeletedElements(newDeletedElements);
   };
 
   useEffect(() => {
-    console.log('AuditForm - templateElements updated:', JSON.stringify({
-      length: templateElements.length,
-      sample: templateElements.slice(0, 2),
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
+    console.log('🔄 AuditForm - auditElements prop changed:', {
+      isArray: Array.isArray(auditElements),
+      length: Array.isArray(auditElements) ? auditElements.length : 0,
+      elements: auditElements
+    });
+  }, [auditElements]);
+
+  useEffect(() => {
+    console.log('🔄 AuditForm - templateVersion state changed:', templateVersion);
+  }, [templateVersion]);
+
+  useEffect(() => {
+    console.log('🔄 AuditForm - isModalOpen state changed:', isModalOpen);
+  }, [isModalOpen]);
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
     console.log('🔍 AuditForm handleElementAdd - Raw input:', {
@@ -86,8 +105,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       subCategoryId,
       name,
       position,
-      onTemplateElementAdd: !!onTemplateElementAdd,
-      onElementAdd: !!onElementAdd
+      onTemplateElementAdd: !!onTemplateElementAdd
     });
 
     // Create new template element with required fields
@@ -122,29 +140,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
       onTemplateElementAdd(retoolData);
     }
-
-    // If we have an onElementAdd callback, call it with the element data
-    if (onElementAdd) {
-      const elementData = {
-        _id: generateTempId(),
-        name,
-        categoryId,
-        subCategoryId,
-        positionByVersion: [position],
-        templateVersion: [audit.templateVersion]
-      };
-
-      console.log('🔍 AuditForm - Calling onElementAdd with elementData:', elementData);
-      onElementAdd(elementData);
-    }
   };
-
-  React.useEffect(() => {
-    console.log('AuditForm templateElements changed:', JSON.stringify({
-      length: templateElements.length,
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
 
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
@@ -162,7 +158,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           <div className="w-64">
             <StatusDropdown
               value={audit?.status || ''}
-              onChange={(value) => handleElementChange(audit?.id ?? '', 'status', value)}
+              onChange={(value) => handleAuditElementChange({ templateElementId: audit?.id ?? '', field: 'status', value })}
               options={[
                 'En cours de rédaction',
                 'Fini',
@@ -202,7 +198,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       <div className="pt-32 px-6 pb-8 w-full space-y-8">
         <InfoTable
           rows={[
-            { label: 'Date', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'visitDate', value) },
+            { label: 'Date', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleAuditElementChange({ templateElementId: audit?.id ?? '', field: 'visitDate', value }) },
             { label: 'Bâtiment', value: building?.name ?? '' },
             { label: 'Portefeuille', value: building?.portfolio ?? '' },
             { label: 'Adresse du site', value: building?.address ?? '' }
@@ -239,8 +235,8 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
         <InfoTable
           rows={[
-            { label: 'Date de visite :', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'visitDate', value) },
-            { label: "Date d'émission du rapport :", value: audit?.reportDate ?? '', editable: true, onChange: (value) => handleElementChange(audit?.id ?? '', 'reportDate', value) },
+            { label: 'Date de visite :', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleAuditElementChange({ templateElementId: audit?.id ?? '', field: 'visitDate', value }) },
+            { label: "Date d'émission du rapport :", value: audit?.reportDate ?? '', editable: true, onChange: (value) => handleAuditElementChange({ templateElementId: audit?.id ?? '', field: 'reportDate', value }) },
             { label: 'Rédacteur :', value: audit?.editor ?? '' }
           ]}
         />
@@ -250,7 +246,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
           onCapacityChange={(index, value) =>
-            handleElementChange(`icpe-${index}`, 'capacity', value)
+            handleAuditElementChange({ templateElementId: `icpe-${index}`, field: 'capacity', value })
           }
         />
 
@@ -265,9 +261,9 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           regulatories={regulatories}
           templateVersion={audit.templateVersion}
           actors={audit.actors}
-          onElementChange={handleElementChange}
+          onElementChange={handleAuditElementChange}
           onElementDuplicate={handleElementDuplicate}
-          onElementDelete={handleElementDelete}
+          onElementDelete={onAuditElementDelete}
           onElementAdd={handleElementAdd}
         />
 
