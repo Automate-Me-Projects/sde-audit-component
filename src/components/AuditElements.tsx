@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import {
@@ -48,7 +48,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
   // Update local elements list when props change
   useEffect(() => {
-  }, [templateElements, auditElements]);
+    console.log(' AuditElements - Template elements updated:', {
+      count: templateElements?.length ?? 0,
+      elements: templateElements?.map(el => ({
+        id: el._id,
+        name: el.name,
+        categoryId: el.categoryId,
+        position: el.positionByVersion
+      })) ?? []
+    });
+  }, [templateElements]);
 
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
@@ -223,13 +232,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
           );
 
         // Sort categories using the same logic as sortTemplateElements
-        const sortedCategories = sortTemplateElements(
-          sectionCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
-          categories,
-          subCategories,
-          sections,
-          templateVersion
-        ).map(te => categories?.find(c => c._id === te._id)!);
+        const sortedCategories = useMemo(() => {
+          console.log(' AuditElements - Sorting template elements');
+          return sortTemplateElements(
+            sectionCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+            categories,
+            subCategories,
+            sections,
+            templateVersion
+          ).map(te => categories?.find(c => c._id === te._id)!);
+        }, [sectionCategories, categories, subCategories, sections, templateVersion]);
 
         if (sortedCategories.length === 0) return null;
 
@@ -249,13 +261,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       .filter(category => category.templateVersion?.includes(templateVersion));
 
     // Sort categories using the same logic as sortTemplateElements
-    const sortedCategories = sortTemplateElements(
-      validCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ).map(te => categories?.find(c => c._id === te._id)!);
+    const sortedCategories = useMemo(() => {
+      console.log(' AuditElements - Sorting template elements');
+      return sortTemplateElements(
+        validCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+        categories,
+        subCategories,
+        sections,
+        templateVersion
+      ).map(te => categories?.find(c => c._id === te._id)!);
+    }, [validCategories, categories, subCategories, sections, templateVersion]);
 
     return sortedCategories.map((category) => renderCategory(category));
   };
@@ -269,33 +284,39 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       );
 
     // Sort subcategories using sortTemplateElements
-    const sortedSubCategories = sortTemplateElements(
-      categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ).map(te => subCategories?.find(sc => sc._id === te._id)!);
+    const sortedSubCategories = useMemo(() => {
+      console.log(' AuditElements - Sorting template elements');
+      return sortTemplateElements(
+        categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
+        categories,
+        subCategories,
+        sections,
+        templateVersion
+      ).map(te => subCategories?.find(sc => sc._id === te._id)!);
+    }, [categorySubCategories, categories, subCategories, sections, templateVersion]);
 
     // Get and sort template elements that are directly linked to this category (no subcategory)
-    const directTemplateElements = sortTemplateElements(
-      (templateElements || []).filter(element => {
-        // Check if the element is valid for this category and version
-        const isValidForCategory = element.categoryId === category._id && 
-          (!element.subCategoryId || element.subCategoryId === '') && 
-          element.templateVersion?.includes(templateVersion);
+    const directTemplateElements = useMemo(() => {
+      console.log(' AuditElements - Sorting template elements');
+      return sortTemplateElements(
+        (templateElements || []).filter(element => {
+          // Check if the element is valid for this category and version
+          const isValidForCategory = element.categoryId === category._id && 
+            (!element.subCategoryId || element.subCategoryId === '') && 
+            element.templateVersion?.includes(templateVersion);
 
-        // Check if this is a default template or has an audit element
-        const isDefaultTemplate = element.isDefault;
-        const hasAuditElement = auditElementsArray?.some(ae => ae.templateElementId === element._id);
+          // Check if this is a default template or has an audit element
+          const isDefaultTemplate = element.isDefault;
+          const hasAuditElement = auditElementsArray?.some(ae => ae.templateElementId === element._id);
 
-        return isValidForCategory && (isDefaultTemplate || hasAuditElement);
-      }),
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    );
+          return isValidForCategory && (isDefaultTemplate || hasAuditElement);
+        }),
+        categories,
+        subCategories,
+        sections,
+        templateVersion
+      );
+    }, [templateElements, categories, subCategories, sections, templateVersion]);
 
     // Get audit elements for this category that are duplicates
     const duplicatedElements = auditElementsArray?.filter(ae => {
@@ -358,7 +379,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                     try {
                       await onElementDuplicate(element);
                     } catch (error) {
-                      console.error('❌ Error requesting element duplication:', error);
+                      console.error(' Error requesting element duplication:', error);
                     }
                   }}
                   className="text-green-500 hover:text-green-700"
@@ -445,30 +466,13 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
   const renderSubCategory = (subCategory: SubCategory, sectionId?: string, regulatoryContent?: JSX.Element) => {
     // Get and sort template elements for this subcategory
-    const subCategoryElements = sortTemplateElements(
-      (templateElements || []).filter(element => {
-        // Check if the element is valid for this subcategory and version
-        const isValidElement = element.categoryId === subCategory.categoryId && 
-          element.subCategoryId === subCategory._id && 
-          element.templateVersion?.includes(templateVersion);
-        
-        // Check if this element has an audit element or is being referenced by one
-        const hasAuditElement = auditElementsArray?.some(ae => 
-          ae.templateElementId === element._id || // Direct match
-          (ae.categoryId === element.categoryId && ae.subCategoryId === element.subCategoryId) // Same category and subcategory (for duplicates)
-        );
-        
-        // Include the element if it's valid and either:
-        // 1. Has an audit element
-        // 2. Is a default template
-        // 3. Is the original element being duplicated
-        return isValidElement && (hasAuditElement || element.isDefault);
-      }),
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    );
+    const subCategoryElements = useMemo(() => {
+      console.log(' AuditElements - Sorting template elements:', {
+        hasElements: !!templateElements,
+        count: templateElements?.length ?? 0
+      });
+      return templateElements ? sortTemplateElements(templateElements, templateVersion) : [];
+    }, [templateElements, templateVersion]);
 
     if (subCategoryElements.length === 0) return null;
 
@@ -493,7 +497,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                     try {
                       await onElementDuplicate(element);
                     } catch (error) {
-                      console.error('❌ Error requesting element duplication:', error);
+                      console.error(' Error requesting element duplication:', error);
                     }
                   }}
                   className="text-green-500 hover:text-green-700"

@@ -99,46 +99,43 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   }, [isModalOpen]);
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
-    console.log('🔍 AuditForm handleElementAdd - Raw input:', {
+    console.log('🔍 AuditForm handleElementAdd - Starting:', {
       sectionId,
       categoryId,
       subCategoryId,
       name,
       position,
-      onTemplateElementAdd: !!onTemplateElementAdd
+      templateVersion: audit.templateVersion
     });
 
-    // Create new template element with required fields
-    if (onTemplateElementAdd) {
-      // Prepare data for Retool
-      const retoolData = {
-        _id: generateTempId(),
-        categoryId,
-        subCategoryId,
-        name,
-        positionByVersion: [position],
-        templateVersion: [audit.templateVersion]
-      };
+    if (!onTemplateElementAdd) {
+      console.error('❌ AuditForm handleElementAdd - onTemplateElementAdd is not defined');
+      return;
+    }
 
-      console.log('🔍 AuditForm - Data for Retool:', {
-        data: retoolData,
-        validation: {
-          categoryId: {
-            value: retoolData.categoryId,
-            type: typeof retoolData.categoryId
-          },
-          subCategoryId: {
-            value: retoolData.subCategoryId,
-            type: typeof retoolData.subCategoryId
-          },
-          name: {
-            value: retoolData.name,
-            type: typeof retoolData.name
-          }
-        }
-      });
+    // Create new template element
+    const newElement = {
+      _id: generateTempId(),
+      categoryId,
+      subCategoryId,
+      name,
+      positionByVersion: Array(audit.templateVersion).fill(0).map((_, i) => 
+        i + 1 === audit.templateVersion ? position : 0
+      ),
+      templateVersion: [audit.templateVersion]
+    };
 
-      onTemplateElementAdd(retoolData);
+    console.log('✨ AuditForm handleElementAdd - Created new element:', {
+      element: JSON.stringify(newElement),
+      positionArray: newElement.positionByVersion
+    });
+
+    try {
+      // Call the parent component's add function
+      onTemplateElementAdd(newElement);
+      console.log('✅ AuditForm handleElementAdd - Successfully called onTemplateElementAdd');
+    } catch (error) {
+      console.error('❌ AuditForm handleElementAdd - Error:', error);
     }
   };
 

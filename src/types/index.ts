@@ -49,7 +49,7 @@ export interface Category {
   name: string;
   templateVersion: readonly number[];
   positionByVersion: readonly number[];
-  section?: string;
+  sectionId: string;
   _id: string;
 }
 
@@ -100,7 +100,7 @@ export interface AuditElement {
 export interface Regulatory {
   sectionId: string;
   categoryId: string;
-  subCategoryId?: string;
+  subCategoryId: string | null;
   text: string;
   _id: string;
 }
@@ -128,6 +128,8 @@ export interface ElementChange {
   actionType?: string | null;
   action?: string | null;
   actionOwner?: string | null;
+  field?: string;
+  value?: any;
 }
 
 export interface AuditFormProps {
@@ -151,4 +153,10 @@ export interface AuditFormProps {
     positionByVersion: number[];
     templateVersion: number[];
   }) => void;
+  onTemplateElementDuplicate?: (element: TemplateElement) => Promise<void>;
+  defaultValue?: any;
+  initialValue?: any;
+  inspector?: 'text' | 'hidden';
+  description?: string;
+  label?: string;
 }

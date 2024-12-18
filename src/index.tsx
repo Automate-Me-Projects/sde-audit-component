@@ -54,13 +54,11 @@ export const AuditFormComponent: FC = () => {
   const [auditElements, setAuditElements] = Retool.useStateArray({
     name: 'auditElements',
     description: 'The auditElements array',
-    defaultValue: [],
   }) as unknown as [AuditElement[], (value: AuditElement[]) => void];
 
   const [newElement, setNewElement] = Retool.useStateObject({
     name: 'newElement',
     description: 'The newly added audit element',
-    defaultValue: null,
   }) as unknown as [AuditElement | null, (value: AuditElement | null) => void];
 
   const [regulatories, setRegulatories] = Retool.useStateArray({
@@ -249,44 +247,44 @@ export const AuditFormComponent: FC = () => {
     setAuditElements(updatedElements);
   };
 
-  const handleTemplateElementAdd = (templateElement: any) => {
-    console.log('🔍 Index handleTemplateElementAdd - Received element:', templateElement);
-
-    // Validate required fields
-    if (!templateElement.categoryId) {
-      console.error('🚨 Index handleTemplateElementAdd - Missing categoryId:', templateElement);
-      return;
-    }
-
-    // Update local state first
-    const newTemplateElements = [...templateElements, templateElement];
-    console.log('🔍 Index handleTemplateElementAdd - Updating state with:', {
-      currentLength: templateElements.length,
-      newLength: newTemplateElements.length,
-      newElement: {
-        id: templateElement._id,
-        categoryId: templateElement.categoryId,
-        name: templateElement.name
-      }
+  const handleTemplateElementAdd = (templateElement: TemplateElement) => {
+    console.log('🔍 AuditFormComponent handleTemplateElementAdd - Starting:', {
+      templateElement: JSON.stringify(templateElement),
+      currentElements: templateElements?.length ?? 0
     });
 
-    // Update state and force re-render
-    setTemplateElements(newTemplateElements);
-    setLastUpdateTime(new Date().toISOString());
+    try {
+      // Ensure we have an array to work with
+      const currentElements = templateElements ?? [];
+      const updatedElements = [...currentElements, templateElement];
+      
+      console.log('✅ AuditFormComponent handleTemplateElementAdd - Updating state:', {
+        oldLength: currentElements.length,
+        newLength: updatedElements.length,
+        newElement: JSON.stringify(templateElement)
+      });
 
-    // Format data for Retool
-    const retoolData = {
-      categoryId: templateElement.categoryId,
-      subCategoryId: templateElement.subCategoryId,
-      name: templateElement.name,
-      positionByVersion: templateElement.positionByVersion,
-      templateVersion: templateElement.templateVersion
-    };
+      // Update local state
+      setTemplateElements(updatedElements);
 
-    console.log('🔍 Index handleTemplateElementAdd - Sending to Retool:', retoolData);
+      // Format data for Retool
+      const retoolData = {
+        categoryId: templateElement.categoryId,
+        subCategoryId: templateElement.subCategoryId,
+        name: templateElement.name,
+        positionByVersion: templateElement.positionByVersion,
+        templateVersion: templateElement.templateVersion
+      };
 
-    // Then trigger Retool event with the correct structure
-    triggerEvent('onTemplateElementAdd', { element: retoolData });
+      console.log('📤 AuditFormComponent handleTemplateElementAdd - Sending to Retool:', {
+        data: JSON.stringify(retoolData)
+      });
+
+      // Trigger Retool event
+      triggerEvent('onTemplateElementAdd', { element: retoolData });
+    } catch (error) {
+      console.error('❌ AuditFormComponent handleTemplateElementAdd - Error:', error);
+    }
   };
 
   const handleElementAdd = (elementData: any) => {
@@ -353,11 +351,16 @@ export const AuditFormComponent: FC = () => {
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date().toISOString());
 
   useEffect(() => {
-    console.log('🔄 Index useEffect - templateElements changed:', JSON.stringify({
-      length: templateElements.length,
-      lastUpdateTime
-    }, null, 2));
-  }, [templateElements, lastUpdateTime]);
+    console.log('🔄 AuditFormComponent - Template elements state:', {
+      hasElements: !!templateElements,
+      count: templateElements?.length ?? 0,
+      elements: templateElements?.map(el => ({
+        id: el._id,
+        name: el.name,
+        categoryId: el.categoryId
+      })) ?? []
+    });
+  }, [templateElements]);
 
   React.useEffect(() => {
     console.log('🔄 Index state changed:', JSON.stringify({
@@ -368,7 +371,7 @@ export const AuditFormComponent: FC = () => {
   }, [templateElements, lastUpdateTime]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="w-full h-full bg-white">
       <AuditForm
         audit={audit}
         building={building}

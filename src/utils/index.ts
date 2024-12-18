@@ -23,7 +23,7 @@ export const getHierarchyPath = (
   const subCategory = subCategories.find(s => s._id === templateElement.subCategoryId);
   
   if (templateVersion === 2) {
-    const section = sections.find(s => s._id === category?.section);
+    const section = sections.find(s => s._id === category?.sectionId);
     const parts = [
       section?.name,
       category?.name,
@@ -74,6 +74,11 @@ export const sortTemplateElements = (
   sections: Section[] | null | undefined,
   templateVersion: number
 ): TemplateElement[] => {
+  console.log('🔄 sortTemplateElements - Starting:', {
+    count: templateElements.length,
+    templateVersion
+  });
+
   if (!templateElements?.length) return [];
   const categoriesArray = categories || [];
   const subCategoriesArray = subCategories || [];
@@ -96,8 +101,8 @@ export const sortTemplateElements = (
     const subCategory = element.subCategoryId ? subCategoriesArray.find(s => s._id === element.subCategoryId) : null;
     
     // Only consider section if templateVersion is 2
-    const section = templateVersion === 2 && category?.section 
-      ? sectionsArray.find(s => s._id === category.section) 
+    const section = templateVersion === 2 && category?.sectionId 
+      ? sectionsArray.find(s => s._id === category.sectionId) 
       : null;
 
     const sectionPos = templateVersion === 2 ? (section?.position ?? Infinity) : 0;
@@ -121,9 +126,14 @@ export const sortTemplateElements = (
     };
   };
 
-  return [...templateElements].sort((a, b) => {
+  const sorted = [...templateElements].sort((a, b) => {
     const posA = getHierarchyPosition(a);
     const posB = getHierarchyPosition(b);
+
+    console.log('🔄 sortTemplateElements - Comparing:', {
+      a: { name: a.name, position: posA.elementPos },
+      b: { name: b.name, position: posB.elementPos }
+    });
 
     // Only compare sections if templateVersion is 2
     if (templateVersion === 2 && posA.sectionPos !== posB.sectionPos) {
@@ -143,4 +153,14 @@ export const sortTemplateElements = (
     // Compare element positions
     return posA.elementPos - posB.elementPos;
   });
+
+  console.log('✅ sortTemplateElements - Result:', {
+    count: sorted.length,
+    positions: sorted.map(el => ({
+      name: el.name,
+      position: getPositionFromVersion(el.positionByVersion, el.templateVersion, templateVersion)
+    }))
+  });
+
+  return sorted;
 };
