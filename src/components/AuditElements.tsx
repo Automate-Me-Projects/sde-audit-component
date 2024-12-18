@@ -181,7 +181,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         <div className="w-full space-y-6">
           {/* Render subcategories if any */}
           {sortedSubCategories.map((subCategory) =>
-            renderSubCategory(subCategory, sectionId, category)
+            renderSubCategory(subCategory, category, sectionId)
           )}
           {/* Render direct template elements if any */}
           {directTemplateElements.map((element) => (
@@ -283,7 +283,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const renderSubCategory = (subCategory: SubCategory, sectionId?: string, category?: Category) => {
+  const renderSubCategory = (subCategory: SubCategory, category: Category, sectionId?: string ) => {
     // Get and sort template elements for this subcategory
     const subCategoryElements = sortTemplateElements(
       (templateElements || []).filter(element => 
@@ -301,7 +301,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     return (
       <div key={subCategory._id} className="w-full">
         <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
-        {sectionId && renderRegulatory(sectionId, category?._id, subCategory._id)}
+        {sectionId && renderRegulatory(sectionId, category._id, subCategory._id)}
         <div className="w-full space-y-4">
           {subCategoryElements.map((element) => (
             <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">

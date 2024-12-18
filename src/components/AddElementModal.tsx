@@ -48,7 +48,7 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
     setElementName('');
   };
 
-  const handleSectionSelect = (section: Section) => {
+  const handleSectionSelect = (section: Section | null) => {
     setSelectedSection(section);
     setElementName('');
   };
@@ -138,7 +138,14 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               <label className="block text-sm font-medium text-gray-700">Catégorie</label>
               <select
                 value={selectedCategory?._id || ''}
-                onChange={(e) => handleCategorySelect(categories.find(c => c._id === e.target.value) || null)}
+                onChange={(e) => {
+                  const selected = categories.find(c => c._id === e.target.value);
+                  if (selected) {
+                    handleCategorySelect(selected);
+                  } else {
+                    console.error('No valid category selected');
+                  }
+                }}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une catégorie</option>
@@ -154,7 +161,12 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               <label className="block text-sm font-medium text-gray-700">Sous-catégorie</label>
               <select
                 value={selectedSubCategory?._id || ''}
-                onChange={(e) => handleSubCategorySelect(subCategories.find(s => s._id === e.target.value) || null)}
+                onChange={(e) => {
+                  const selected = subCategories.find(s => s._id === e.target.value);
+                  if (selected) {
+                    handleSubCategorySelect(selected);
+                  }
+                }}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une sous-catégorie</option>
