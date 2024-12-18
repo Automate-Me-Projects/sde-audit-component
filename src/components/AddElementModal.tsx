@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Section, Category, SubCategory, TemplateElement } from '../types';
@@ -24,22 +24,10 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   templateVersion,
   templateElements = [],
 }) => {
-  // Log initial props
-  useEffect(() => {
-  }, []);
-
   const [selectedSection, setSelectedSection] = useState<Section | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
   const [elementName, setElementName] = useState<string>('');
-
-  useEffect(() => {
-    console.log('AddElementModal - templateElements prop received:', JSON.stringify({
-      length: templateElements.length,
-      sample: templateElements.slice(0, 2),
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
 
   const filteredCategories = templateVersion === 2
     ? (categories || []).filter(c => c.section === selectedSection?._id)
@@ -48,76 +36,61 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory?._id);
 
   const handleCategorySelect = (category: Category) => {
-    console.log('🔍 AddElementModal handleCategorySelect - Selected category:', {
-      id: category._id,
-      name: category.name
-    });
-
     setSelectedCategory(category);
     setSelectedSubCategory(null);
+    setSelectedSection(null);
     setElementName('');
   };
 
   const handleSubCategorySelect = (subCategory: SubCategory) => {
-    console.log('🔍 AddElementModal handleSubCategorySelect - Selected subcategory:', {
-      id: subCategory._id,
-      name: subCategory.name,
-      categoryId: selectedCategory?._id
-    });
-
     setSelectedSubCategory(subCategory);
     setSelectedSection(null);
     setElementName('');
   };
 
   const handleSectionSelect = (section: Section) => {
-    console.log('🔍 AddElementModal handleSectionSelect - Selected section:', {
-      id: section._id,
-      name: section.name,
-      categoryId: selectedCategory?._id,
-      subCategoryId: selectedSubCategory?._id
-    });
-
     setSelectedSection(section);
-    setSelectedCategory(null);
-    setSelectedSubCategory(null);
     setElementName('');
   };
 
   const handleAddElement = () => {
-    console.log('🔍 AddElementModal handleAddElement - Starting:', {
-      selectedSection: selectedSection ? JSON.stringify(selectedSection) : 'null',
-      selectedCategory: selectedCategory ? JSON.stringify(selectedCategory) : 'null',
-      selectedSubCategory: selectedSubCategory ? JSON.stringify(selectedSubCategory) : 'null',
-      elementName,
-      templateVersion
-    });
-
     if (!selectedCategory) {
-      console.error('❌ AddElementModal handleAddElement - No category selected');
+      console.error('🚨 AddElementModal handleAddElement - No category selected');
       return;
     }
 
-    console.log('🔍 AddElementModal handleAddElement - Adding element:', {
-      categoryId: selectedCategory._id,
-      subCategoryId: selectedSubCategory?._id,
-      sectionId: selectedSection?._id,
-      name: elementName,
-      position: templateElements.length
+    // Filter elements with the same categoryId and subCategoryId
+    const relatedElements = templateElements.filter(el => {
+      const categoryMatches = el.categoryId === selectedCategory._id;
+      
+      // Helper function to check if a subCategoryId is effectively empty
+      const isEmptySubCategory = (id: string | null | undefined) => 
+        id === null || id === '' || id === undefined;
+      
+      // If we're adding with a subCategory, match exactly
+      // If we're adding without a subCategory, match any empty subCategory value
+      const subCategoryMatches = selectedSubCategory?._id 
+        ? el.subCategoryId === selectedSubCategory._id
+        : isEmptySubCategory(el.subCategoryId);
+      
+      return categoryMatches && subCategoryMatches;
     });
+
+    // Calculate position as the count of related elements + 1
+    const position = relatedElements.length + 1;
 
     onAdd(
       selectedSection?._id || null,
       selectedCategory._id,
       selectedSubCategory?._id || null,
       elementName,
-      templateElements.length
+      position
     );
 
-    // Clear form and close modal
-    setSelectedSection(null);
+    // Reset form
     setSelectedCategory(null);
     setSelectedSubCategory(null);
+    setSelectedSection(null);
     setElementName('');
     onClose();
   };
@@ -148,13 +121,7 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
                 <label className="block text-sm font-medium text-gray-700">Section</label>
                 <select
                   value={selectedSection?._id || ''}
-                  onChange={(e) => {
-                    const selected = sections.find(s => s._id === e.target.value);
-                    if (selected) {
-                      handleSectionSelect(selected);
-                    }
-                    // Do nothing if no section is selected
-                  }}
+                  onChange={(e) => handleSectionSelect(sections.find(s => s._id === e.target.value) || null)}
                   className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">Sélectionner une section</option>
@@ -171,32 +138,15 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
               <label className="block text-sm font-medium text-gray-700">Catégorie</label>
               <select
                 value={selectedCategory?._id || ''}
-                onChange={(e) => {
-                  console.log(' Category selection changed:', {
-                    selectedValue: e.target.value,
-                    filteredCategoriesCount: filteredCategories.length
-                  });
-                  const selected = filteredCategories.find(c => c._id === e.target.value);
-                  if (selected) {
-                    handleCategorySelect(selected);
-                  }
-                  // Do nothing if no category is selected
-                }}
+                onChange={(e) => handleCategorySelect(categories.find(c => c._id === e.target.value) || null)}
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm"
               >
                 <option value="">Sélectionner une catégorie</option>
-                {filteredCategories.map((category) => {
-                  console.log('Rendering category option:', {
-                    id: category._id,
-                    name: category.name,
-                    sectionId: category.sectionId
-                  });
-                  return (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  );
-                })}
+                {filteredCategories.map((category) => (
+                  <option key={category._id} value={category._id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
             </div>
 

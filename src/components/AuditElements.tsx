@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import {
@@ -43,22 +43,6 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 }) => {
   const [localState, setLocalState] = React.useState<{[key: string]: string}>({});
 
-  // Ensure auditElements is always an array
-  const auditElementsArray = Array.isArray(auditElements) ? auditElements : [];
-
-  // Update local elements list when props change
-  useEffect(() => {
-    console.log(' AuditElements - Template elements updated:', {
-      count: templateElements?.length ?? 0,
-      elements: templateElements?.map(el => ({
-        id: el._id,
-        name: el.name,
-        categoryId: el.categoryId,
-        position: el.positionByVersion
-      })) ?? []
-    });
-  }, [templateElements]);
-
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
       onElementChange(elementId, field, value);
@@ -72,29 +56,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       ...prev,
       [`${elementId}-${field}`]: value
     }));
-    
-    // Find the audit element
-    const auditElement = auditElementsArray.find(ae => 
-      ae._id === elementId || ae.templateElementId === elementId
-    );
-    
-    if (!auditElement) {
-      // Find the template element
-      const templateElement = templateElements?.find(te => te._id === elementId);
-      if (templateElement) {
-        onElementChange({
-          templateElementId: elementId,
-          categoryId: templateElement.categoryId,
-          subCategoryId: templateElement.subCategoryId,
-          [field]: value
-        });
-      }
-    } else {
-      onElementChange({
-        auditElementId: auditElement._id,
-        [field]: value
-      });
-    }
+    // Debounce the actual change
+    debouncedElementChange(elementId, field, value);
   };
 
   const getLocalValue = (elementId: string, field: string) => {
@@ -102,117 +65,27 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     if (localValue !== undefined) {
       return localValue;
     }
-    
-    const auditElement = auditElementsArray.find(ae => 
-      ae._id === elementId || ae.templateElementId === elementId
-    );
+    const auditElement = auditElements.find(ae => ae._id === elementId || ae.templateElementId === elementId);
     return auditElement ? (auditElement as any)[field] || '' : '';
   };
 
-  const findAuditElement = useCallback((elementId: string): AuditElement | undefined => {
-    // First try to find by audit element ID
-    let auditElement = auditElementsArray.find(ae => ae._id === elementId);
-    if (!auditElement) {
-      // If not found, try to find by template element ID
-      auditElement = auditElementsArray.find(ae => ae.templateElementId === elementId);
-    }
-    return auditElement;
-  }, [auditElementsArray]);
+  const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string) => {
+    const regulatory = regulatories.find(
+      r =>
+        r.sectionId === sectionId &&
+        r.categoryId === categoryId &&
+        (!subCategoryId ? 
+          (!r.subCategoryId || r.subCategoryId === "null" || r.subCategoryId === "") :
+          r.subCategoryId === subCategoryId
+        )
+    );
 
-  const handleStatusChange = (elementId: string, value: string) => {
-    const auditElement = findAuditElement(elementId);
-    if (!auditElement) {
-      const templateElement = templateElements?.find(te => te._id === elementId);
-      if (templateElement) {
-        onElementChange({
-          templateElementId: elementId,
-          categoryId: templateElement.categoryId,
-          subCategoryId: templateElement.subCategoryId,
-          status: value
-        });
-      }
-    } else {
-      onElementChange({
-        auditElementId: auditElement._id,
-        status: value
-      });
-    }
-  };
-
-  const handleActionTypeChange = (elementId: string, value: string) => {
-    const auditElement = findAuditElement(elementId);
-    if (!auditElement) {
-      const templateElement = templateElements?.find(te => te._id === elementId);
-      if (templateElement) {
-        onElementChange({
-          templateElementId: elementId,
-          categoryId: templateElement.categoryId,
-          subCategoryId: templateElement.subCategoryId,
-          actionType: value
-        });
-      }
-    } else {
-      onElementChange({
-        auditElementId: auditElement._id,
-        actionType: value
-      });
-    }
-  };
-
-  const handleActionOwnerChange = (elementId: string, value: string) => {
-    const auditElement = findAuditElement(elementId);
-    if (!auditElement) {
-      const templateElement = templateElements?.find(te => te._id === elementId);
-      if (templateElement) {
-        onElementChange({
-          templateElementId: elementId,
-          categoryId: templateElement.categoryId,
-          subCategoryId: templateElement.subCategoryId,
-          actionOwner: value
-        });
-      }
-    } else {
-      onElementChange({
-        auditElementId: auditElement._id,
-        actionOwner: value
-      });
-    }
-  };
-
-  const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string | null) => {
-    // Find all matching regulatories for this section and category
-    const matchingRegulatories = regulatories.filter(r => {
-      const sectionMatch = r.sectionId === sectionId;
-      const categoryMatch = r.categoryId === categoryId;
-      
-      // Handle cases where subCategoryId is "null" string or missing
-      const normalizeSubCategoryId = (id: string | null | undefined) => 
-        !id || id === "null" ? null : id;
-      
-      const normalizedRegulatorySubCategoryId = normalizeSubCategoryId(r.subCategoryId);
-      const normalizedRequestedSubCategoryId = normalizeSubCategoryId(subCategoryId);
-
-      // For category level (subCategoryId is null), only show regulatories without subCategoryId
-      if (normalizedRequestedSubCategoryId === null) {
-        return sectionMatch && categoryMatch && normalizedRegulatorySubCategoryId === null;
-      }
-      
-      // For subcategory level, show regulatories with matching subCategoryId
-      return sectionMatch && categoryMatch && normalizedRegulatorySubCategoryId === normalizedRequestedSubCategoryId;
-    });
-
-    if (matchingRegulatories.length === 0) {
-      return null;
-    }
+    if (!regulatory) return null;
 
     return (
-      <>
-        {matchingRegulatories.map(regulatory => (
-          <div key={regulatory._id} className="bg-gray-100 p-4 my-2 italic text-black">
-            {regulatory.text}
-          </div>
-        ))}
-      </>
+      <div className="bg-gray-100 p-4 my-2 italic text-black">
+        {regulatory.text}
+      </div>
     );
   };
 
@@ -232,16 +105,13 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
           );
 
         // Sort categories using the same logic as sortTemplateElements
-        const sortedCategories = useMemo(() => {
-          console.log(' AuditElements - Sorting template elements');
-          return sortTemplateElements(
-            sectionCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
-            categories,
-            subCategories,
-            sections,
-            templateVersion
-          ).map(te => categories?.find(c => c._id === te._id)!);
-        }, [sectionCategories, categories, subCategories, sections, templateVersion]);
+        const sortedCategories = sortTemplateElements(
+          sectionCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+          categories,
+          subCategories,
+          sections,
+          templateVersion
+        ).map(te => categories?.find(c => c._id === te._id)!);
 
         if (sortedCategories.length === 0) return null;
 
@@ -261,16 +131,13 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       .filter(category => category.templateVersion?.includes(templateVersion));
 
     // Sort categories using the same logic as sortTemplateElements
-    const sortedCategories = useMemo(() => {
-      console.log(' AuditElements - Sorting template elements');
-      return sortTemplateElements(
-        validCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
-        categories,
-        subCategories,
-        sections,
-        templateVersion
-      ).map(te => categories?.find(c => c._id === te._id)!);
-    }, [validCategories, categories, subCategories, sections, templateVersion]);
+    const sortedCategories = sortTemplateElements(
+      validCategories.map(c => ({ ...c, _id: c._id, categoryId: c._id })) as unknown as TemplateElement[],
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    ).map(te => categories?.find(c => c._id === te._id)!);
 
     return sortedCategories.map((category) => renderCategory(category));
   };
@@ -284,90 +151,45 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       );
 
     // Sort subcategories using sortTemplateElements
-    const sortedSubCategories = useMemo(() => {
-      console.log(' AuditElements - Sorting template elements');
-      return sortTemplateElements(
-        categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
-        categories,
-        subCategories,
-        sections,
-        templateVersion
-      ).map(te => subCategories?.find(sc => sc._id === te._id)!);
-    }, [categorySubCategories, categories, subCategories, sections, templateVersion]);
+    const sortedSubCategories = sortTemplateElements(
+      categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    ).map(te => subCategories?.find(sc => sc._id === te._id)!);
 
     // Get and sort template elements that are directly linked to this category (no subcategory)
-    const directTemplateElements = useMemo(() => {
-      console.log(' AuditElements - Sorting template elements');
-      return sortTemplateElements(
-        (templateElements || []).filter(element => {
-          // Check if the element is valid for this category and version
-          const isValidForCategory = element.categoryId === category._id && 
-            (!element.subCategoryId || element.subCategoryId === '') && 
-            element.templateVersion?.includes(templateVersion);
+    const directTemplateElements = sortTemplateElements(
+      (templateElements || []).filter(element => 
+        element.categoryId === category._id && 
+        (!element.subCategoryId || element.subCategoryId === '') && 
+        element.templateVersion?.includes(templateVersion)
+      ),
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    );
 
-          // Check if this is a default template or has an audit element
-          const isDefaultTemplate = element.isDefault;
-          const hasAuditElement = auditElementsArray?.some(ae => ae.templateElementId === element._id);
-
-          return isValidForCategory && (isDefaultTemplate || hasAuditElement);
-        }),
-        categories,
-        subCategories,
-        sections,
-        templateVersion
-      );
-    }, [templateElements, categories, subCategories, sections, templateVersion]);
-
-    // Get audit elements for this category that are duplicates
-    const duplicatedElements = auditElementsArray?.filter(ae => {
-      const templateElement = templateElements?.find(te => te._id === ae.templateElementId);
-      return templateElement?.categoryId === category._id && 
-        (!templateElement.subCategoryId || templateElement.subCategoryId === '') &&
-        !templateElement.isDefault; // Only include duplicates
-    });
-
-    // Create combined elements array with both template and duplicated elements
-    const allElements = [
-      ...directTemplateElements.map(te => ({
-        ...te,
-        isTemplate: true,
-        auditElement: auditElementsArray?.find(ae => ae.templateElementId === te._id)
-      })),
-      ...duplicatedElements.map(ae => {
-        const templateElement = templateElements?.find(te => te._id === ae.templateElementId);
-        return {
-          ...templateElement,
-          _id: ae._id,
-          isTemplate: false,
-          auditElement: ae
-        };
-      })
-    ];
-
-    if (sortedSubCategories.length === 0 && allElements.length === 0) return null;
+    if (sortedSubCategories.length === 0 && directTemplateElements.length === 0) return null;
 
     return (
       <div key={category._id} className="w-full mb-6">
-        <h3 className="text-[rgb(0,106,60)] font-medium mb-2">{category.name}</h3>
-        {/* Only render regulatories without subCategoryId at category level */}
-        {sectionId && renderRegulatory(sectionId, category._id, null)}
+        <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
+        {sectionId && renderRegulatory(sectionId, category._id)}
         <div className="w-full space-y-6">
           {/* Render subcategories if any */}
-          {sortedSubCategories.map((subCategory) => {
-            // Render regulatory for this subcategory if it exists
-            const regulatoryContent = sectionId && renderRegulatory(sectionId, category._id, subCategory._id);
-            return (
-              <div key={subCategory._id}>
-                {renderSubCategory(subCategory, sectionId, regulatoryContent)}
-              </div>
-            );
-          })}
-          {/* Render all elements */}
-          {allElements.map((element) => (
+          {sortedSubCategories.map((subCategory) =>
+            renderSubCategory(subCategory, sectionId, category)
+          )}
+          {/* Render direct template elements if any */}
+          {directTemplateElements.map((element) => (
             <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => {
+                    console.log('Delete button clicked for element:', element._id);
                     onElementDelete(element._id);
                   }}
                   className="text-red-500 hover:text-red-700"
@@ -375,12 +197,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={async () => {
-                    try {
-                      await onElementDuplicate(element);
-                    } catch (error) {
-                      console.error(' Error requesting element duplication:', error);
-                    }
+                  onClick={() => {
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
+                    onElementDuplicate(element);
                   }}
                   className="text-green-500 hover:text-green-700"
                 >
@@ -404,8 +223,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.status || ''}
-                  onChange={(value) => handleStatusChange(element._id, value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
+                  onChange={(value) => onElementChange(element._id, 'status', value)}
                   options={[
                     'Conforme',
                     'Non conforme',
@@ -418,8 +237,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => handleActionTypeChange(element._id, e.target.value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -445,8 +264,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => handleActionOwnerChange(element._id, e.target.value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
@@ -464,28 +283,32 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const renderSubCategory = (subCategory: SubCategory, sectionId?: string, regulatoryContent?: JSX.Element) => {
+  const renderSubCategory = (subCategory: SubCategory, sectionId?: string, category?: Category) => {
     // Get and sort template elements for this subcategory
-    const subCategoryElements = useMemo(() => {
-      console.log(' AuditElements - Sorting template elements:', {
-        hasElements: !!templateElements,
-        count: templateElements?.length ?? 0
-      });
-      return templateElements ? sortTemplateElements(templateElements, templateVersion) : [];
-    }, [templateElements, templateVersion]);
+    const subCategoryElements = sortTemplateElements(
+      (templateElements || []).filter(element => 
+        element.subCategoryId === subCategory._id && 
+        element.templateVersion?.includes(templateVersion)
+      ),
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    );
 
     if (subCategoryElements.length === 0) return null;
 
     return (
       <div key={subCategory._id} className="w-full">
         <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
-        {regulatoryContent}
+        {sectionId && renderRegulatory(sectionId, category?._id, subCategory._id)}
         <div className="w-full space-y-4">
           {subCategoryElements.map((element) => (
             <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => {
+                    console.log('Delete button clicked for element:', element._id);
                     onElementDelete(element._id);
                   }}
                   className="text-red-500 hover:text-red-700"
@@ -493,12 +316,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                   <Trash2 className="h-5 w-5" />
                 </button>
                 <button
-                  onClick={async () => {
-                    try {
-                      await onElementDuplicate(element);
-                    } catch (error) {
-                      console.error(' Error requesting element duplication:', error);
-                    }
+                  onClick={() => {
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
+                    onElementDuplicate(element);
                   }}
                   className="text-green-500 hover:text-green-700"
                 >
@@ -522,8 +342,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.status || ''}
-                  onChange={(value) => handleStatusChange(element._id, value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
+                  onChange={(value) => onElementChange(element._id, 'status', value)}
                   options={[
                     'Conforme',
                     'Non conforme',
@@ -536,8 +356,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => handleActionTypeChange(element._id, e.target.value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Type d&apos;action</option>
@@ -563,8 +383,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElementsArray?.find(ae => ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => handleActionOwnerChange(element._id, e.target.value)}
+                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
+                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>

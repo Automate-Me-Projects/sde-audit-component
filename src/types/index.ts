@@ -49,7 +49,7 @@ export interface Category {
   name: string;
   templateVersion: readonly number[];
   positionByVersion: readonly number[];
-  sectionId: string;
+  section?: string;
   _id: string;
 }
 
@@ -100,7 +100,7 @@ export interface AuditElement {
 export interface Regulatory {
   sectionId: string;
   categoryId: string;
-  subCategoryId: string | null;
+  subCategoryId?: string;
   text: string;
   _id: string;
 }
@@ -118,18 +118,9 @@ export interface Image {
 }
 
 export interface ElementChange {
-  auditElementId?: string;
-  templateElementId?: string;
-  categoryId?: string;
-  subCategoryId?: string | null;
-  auditId?: string;
-  constat?: string;
-  status?: string;
-  actionType?: string | null;
-  action?: string | null;
-  actionOwner?: string | null;
-  field?: string;
-  value?: any;
+  elementId: string;
+  field: string;
+  value: any;
 }
 
 export interface AuditFormProps {
@@ -143,9 +134,10 @@ export interface AuditFormProps {
   auditElements: AuditElement[];
   regulatories: Regulatory[];
   images: Image[];
-  onAuditElementChange?: (data: ElementChange) => void;
-  onAuditElementAdd?: (data: ElementChange) => void;
-  onAuditElementDelete?: (auditElementId: string) => void;
+  onElementChange?: (elementId: string, field: string, value: any) => void;
+  onElementDuplicate?: (element: TemplateElement) => void;
+  onElementDelete?: (elementId: string) => void;
+  onElementAdd?: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
   onTemplateElementAdd?: (data: {
     categoryId: string;
     subCategoryId: string | null;
