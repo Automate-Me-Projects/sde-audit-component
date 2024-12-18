@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
 import { Section, Category, SubCategory, TemplateElement } from '../types';
@@ -33,58 +33,51 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
   const [selectedSubCategory, setSelectedSubCategory] = useState<SubCategory | null>(null);
   const [elementName, setElementName] = useState<string>('');
 
-  // Filter categories based on selected section
-  const filteredCategories = useMemo(() => {
-    const categoriesArray = categories || [];
-    
-    console.log('🔍 Filtering categories:', {
-      templateVersion,
-      selectedSection: selectedSection ? JSON.stringify(selectedSection) : 'null',
-      categoriesCount: categoriesArray.length
-    });
-
-    if (!selectedSection) return categoriesArray;
-
-    // For template version 2, categories have sectionId
-    if (templateVersion === 2) {
-      const filtered = categoriesArray.filter(c => c.sectionId === selectedSection._id);
-      console.log('📋 Template version 2 - Filtered categories by sectionId:', {
-        count: filtered.length,
-        filtered: JSON.stringify(filtered)
-      });
-      return filtered;
-    }
-
-    // For template version 1, categories don't have sectionId, show all
-    console.log('ℹ️ Template version 1: showing all categories');
-    return categoriesArray;
-  }, [categories, selectedSection, templateVersion]);
-
-  // Log whenever filtered categories changes
   useEffect(() => {
-  }, [filteredCategories]);
+    console.log('AddElementModal - templateElements prop received:', JSON.stringify({
+      length: templateElements.length,
+      sample: templateElements.slice(0, 2),
+      timestamp: new Date().toISOString()
+    }, null, 2));
+  }, [templateElements]);
+
+  const filteredCategories = templateVersion === 2
+    ? (categories || []).filter(c => c.section === selectedSection?._id)
+    : categories || [];
 
   const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory?._id);
 
   const handleCategorySelect = (category: Category) => {
+    console.log('🔍 AddElementModal handleCategorySelect - Selected category:', {
+      id: category._id,
+      name: category.name
+    });
+
     setSelectedCategory(category);
     setSelectedSubCategory(null);
     setElementName('');
   };
 
   const handleSubCategorySelect = (subCategory: SubCategory) => {
+    console.log('🔍 AddElementModal handleSubCategorySelect - Selected subcategory:', {
+      id: subCategory._id,
+      name: subCategory.name,
+      categoryId: selectedCategory?._id
+    });
+
     setSelectedSubCategory(subCategory);
     setSelectedSection(null);
     setElementName('');
   };
 
   const handleSectionSelect = (section: Section) => {
-    console.log(' Section selected:', {
-      section: JSON.stringify(section),
-      templateVersion,
-      categoriesCount: categories?.length || 0
+    console.log('🔍 AddElementModal handleSectionSelect - Selected section:', {
+      id: section._id,
+      name: section.name,
+      categoryId: selectedCategory?._id,
+      subCategoryId: selectedSubCategory?._id
     });
-    
+
     setSelectedSection(section);
     setSelectedCategory(null);
     setSelectedSubCategory(null);
@@ -105,46 +98,20 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
       return;
     }
 
-    // Filter elements with the same categoryId and subCategoryId
-    const relatedElements = templateElements.filter(el => {
-      const categoryMatches = el.categoryId === selectedCategory._id;
-      const subCategoryMatches = selectedSubCategory
-        ? el.subCategoryId === selectedSubCategory._id
-        : !el.subCategoryId;
-      const versionMatches = el.templateVersion.includes(templateVersion);
-      
-      return categoryMatches && subCategoryMatches && versionMatches;
+    console.log('🔍 AddElementModal handleAddElement - Adding element:', {
+      categoryId: selectedCategory._id,
+      subCategoryId: selectedSubCategory?._id,
+      sectionId: selectedSection?._id,
+      name: elementName,
+      position: templateElements.length
     });
 
-    console.log('📋 AddElementModal handleAddElement - Related elements:', {
-      count: relatedElements.length,
-      elements: JSON.stringify(relatedElements)
-    });
-
-    // Find the maximum position for the current template version
-    const maxPosition = relatedElements.reduce((max, el) => {
-      const versionIndex = el.templateVersion.indexOf(templateVersion);
-      if (versionIndex === -1) return max;
-      
-      const position = el.positionByVersion[versionIndex] || 0;
-      return Math.max(max, position);
-    }, 0);
-
-    const newPosition = maxPosition + 1;
-
-    console.log('🔢 AddElementModal handleAddElement - Position calculation:', {
-      maxPosition,
-      newPosition,
-      templateVersion
-    });
-
-    // Call onAdd with the new element
     onAdd(
       selectedSection?._id || null,
       selectedCategory._id,
       selectedSubCategory?._id || null,
       elementName,
-      newPosition
+      templateElements.length
     );
 
     // Clear form and close modal

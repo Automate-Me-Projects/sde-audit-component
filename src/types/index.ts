@@ -153,10 +153,4 @@ export interface AuditFormProps {
     positionByVersion: number[];
     templateVersion: number[];
   }) => void;
-  onTemplateElementDuplicate?: (element: TemplateElement) => Promise<void>;
-  defaultValue?: any;
-  initialValue?: any;
-  inspector?: 'text' | 'hidden';
-  description?: string;
-  label?: string;
 }
