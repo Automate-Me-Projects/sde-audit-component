@@ -10,7 +10,7 @@ import {
   Regulatory,
   ExpandedElement
 } from '../types';
-import { sortTemplateElements } from '../utils';
+import { sortTemplateElements, sortByPosition } from '../utils';
 import debounce from 'lodash/debounce';
 
 interface AuditElementsProps {
@@ -23,10 +23,131 @@ interface AuditElementsProps {
   templateVersion: number;
   actors: string[];
   onElementChange: (elementId: string, field: string, value: any) => void;
-  onElementDuplicate: (element: TemplateElement) => void;
+  onElementDuplicate: (element: ExpandedElement) => void;
   onElementDelete: (elementId: string) => void;
   onElementAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }
+
+interface AuditElementRowProps {
+  expandedElement: ExpandedElement;
+  onElementDelete: (elementId: string) => void;
+  onElementDuplicate: (element: ExpandedElement) => void;
+  onElementChange: (elementId: string, field: string, value: any) => void;
+  handleTextChange: (elementId: string, field: string, value: string) => void;
+  actors: string[];
+}
+
+const AuditElementRow: React.FC<AuditElementRowProps> = ({
+  expandedElement,
+  onElementDelete,
+  onElementDuplicate,
+  onElementChange,
+  handleTextChange,
+  actors,
+}) => (
+  <div 
+    className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
+  >
+    <div className="flex space-x-2 min-w-[60px] self-center">
+      <button
+        onClick={() => onElementDelete(expandedElement._id)}
+        className="text-red-500 hover:text-red-700"
+      >
+        <Trash2 className="h-5 w-5" />
+      </button>
+      <button
+        onClick={() => onElementDuplicate(expandedElement)}
+        className="text-green-500 hover:text-green-700"
+      >
+        <Copy className="h-5 w-5" />
+      </button>
+    </div>
+
+    <div className="bg-gray-50 min-h-[80px] w-full">
+      {expandedElement.name}
+    </div>
+
+    <textarea
+      value={expandedElement.auditElement?.constat || ''}
+      onChange={(e) => handleTextChange(
+        expandedElement.auditElement?._id || expandedElement._id,
+        'constat',
+        e.target.value
+      )}
+      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+      rows={3}
+    />
+
+    <div>
+      <StatusDropdown
+        value={expandedElement.auditElement?.status || ''}
+        onChange={(value) => onElementChange(
+          expandedElement.auditElement?._id || expandedElement._id,
+          'status',
+          value
+        )}
+        options={[
+          'Conforme',
+          'Non conforme',
+          'Observation',
+          'Sans objet',
+          'Pour information',
+        ]}
+      />
+    </div>
+
+    <div>
+      <select
+        value={expandedElement.auditElement?.actionType || ''}
+        onChange={(e) => onElementChange(
+          expandedElement.auditElement?._id || expandedElement._id,
+          'actionType',
+          e.target.value
+        )}
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Type d&apos;action</option>
+        {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+          (type) => (
+            <option key={type} value={type}>
+              {type}
+            </option>
+          )
+        )}
+      </select>
+    </div>
+
+    <textarea
+      value={expandedElement.auditElement?.action || ''}
+      onChange={(e) => handleTextChange(
+        expandedElement.auditElement?._id || expandedElement._id,
+        'action',
+        e.target.value
+      )}
+      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+      rows={3}
+    />
+
+    <div>
+      <select
+        value={expandedElement.auditElement?.actionOwner || ''}
+        onChange={(e) => onElementChange(
+          expandedElement.auditElement?._id || expandedElement._id,
+          'actionOwner',
+          e.target.value
+        )}
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Acteur</option>
+        {actors.map((actor) => (
+          <option key={actor} value={actor}>
+            {actor}
+          </option>
+        ))}
+      </select>
+    </div>
+  </div>
+);
 
 export const AuditElements: React.FC<AuditElementsProps> = ({
   sections,
@@ -124,7 +245,11 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         // For each section, get its categories
         const sectionCategories = (categories || [])
           .filter(category => category.section === section._id)
-          .sort((a, b) => (a.position || 0) - (b.position || 0));
+          .sort((a, b) => {
+            const posA = a.positionByVersion[a.templateVersion.indexOf(templateVersion)] || 0;
+            const posB = b.positionByVersion[b.templateVersion.indexOf(templateVersion)] || 0;
+            return posA - posB;
+          });
 
         return (
           <div key={section._id} className="w-full mb-8">
@@ -143,23 +268,18 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     const validCategories = (categories || [])
       .filter(category => category.templateVersion?.includes(templateVersion));
 
-    // Sort categories using the same logic as sortTemplateElements
-    const sortedCategories = sortTemplateElements(
-      validCategories.map(category => ({
-        ...category,
-        auditElement: null
-      })),
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    );
+    // Sort categories using sortByPosition
+    const sortedCategories = sortByPosition(validCategories, templateVersion);
 
     return sortedCategories.map(category => {
       // Get subcategories for this category
       const categorySubCategories = (subCategories || [])
         .filter(sc => sc.categoryId === category._id)
-        .sort((a, b) => (a.position || 0) - (b.position || 0));
+        .sort((a, b) => {
+          const posA = a.positionByVersion[a.templateVersion.indexOf(templateVersion)] || 0;
+          const posB = b.positionByVersion[b.templateVersion.indexOf(templateVersion)] || 0;
+          return posA - posB;
+        });
 
       return (
         <div key={category._id} className="w-full">
@@ -207,120 +327,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             renderSubCategory(subCategory, category, sectionId)
           )}
           {/* Render direct template elements if any */}
-          {sortedElements.map((expandedElement: ExpandedElement) => (
-            <div 
-              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`} 
-              className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
-            >
-              <div className="flex space-x-2 min-w-[60px] self-center">
-                <button
-                  onClick={() => {
-                    onElementDelete(expandedElement._id);
-                  }}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => {
-                    onElementDuplicate(expandedElement);
-                  }}
-                  className="text-green-500 hover:text-green-700"
-                >
-                  <Copy className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="bg-gray-50 min-h-[80px] w-full">
-                {expandedElement.name}
-              </div>
-
-              <textarea
-                value={expandedElement.auditElement?.constat || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleTextChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'constat',
-                    value
-                  );
-                }}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-                rows={3}
-              />
-
-              <div>
-                <StatusDropdown
-                  value={expandedElement.auditElement?.status || ''}
-                  onChange={(value) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'status',
-                    value
-                  )}
-                  options={[
-                    'Conforme',
-                    'Non conforme',
-                    'Observation',
-                    'Sans objet',
-                    'Pour information',
-                  ]}
-                />
-              </div>
-
-              <div>
-                <select
-                  value={expandedElement.auditElement?.actionType || ''}
-                  onChange={(e) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'actionType',
-                    e.target.value
-                  )}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Type d'action</option>
-                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                    (type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <textarea
-                value={expandedElement.auditElement?.action || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleTextChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'action',
-                    value
-                  );
-                }}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-                rows={3}
-              />
-
-              <div>
-                <select
-                  value={expandedElement.auditElement?.actionOwner || ''}
-                  onChange={(e) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'actionOwner',
-                    e.target.value
-                  )}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Acteur</option>
-                  {(actors || []).map((actor) => (
-                    <option key={actor} value={actor}>
-                      {actor}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          {sortedElements.map((expandedElement) => (
+            <AuditElementRow
+              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
+              expandedElement={expandedElement}
+              onElementDelete={onElementDelete}
+              onElementDuplicate={onElementDuplicate}
+              onElementChange={onElementChange}
+              handleTextChange={handleTextChange}
+              actors={actors}
+            />
           ))}
         </div>
       </div>
@@ -351,120 +367,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
         {sectionId && renderRegulatory(sectionId, category._id, subCategory._id)}
         <div className="w-full space-y-4">
-          {sortedElements.map((expandedElement: ExpandedElement) => (
-            <div 
-              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`} 
-              className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
-            >
-              <div className="flex space-x-2 min-w-[60px] self-center">
-                <button
-                  onClick={() => {
-                    onElementDelete(expandedElement._id);
-                  }}
-                  className="text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => {
-                    onElementDuplicate(expandedElement);
-                  }}
-                  className="text-green-500 hover:text-green-700"
-                >
-                  <Copy className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="bg-gray-50 min-h-[80px] w-full">
-                {expandedElement.name}
-              </div>
-
-              <textarea
-                value={expandedElement.auditElement?.constat || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleTextChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'constat',
-                    value
-                  );
-                }}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-                rows={3}
-              />
-
-              <div>
-                <StatusDropdown
-                  value={expandedElement.auditElement?.status || ''}
-                  onChange={(value) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'status',
-                    value
-                  )}
-                  options={[
-                    'Conforme',
-                    'Non conforme',
-                    'Observation',
-                    'Sans objet',
-                    'Pour information',
-                  ]}
-                />
-              </div>
-
-              <div>
-                <select
-                  value={expandedElement.auditElement?.actionType || ''}
-                  onChange={(e) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'actionType',
-                    e.target.value
-                  )}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Type d'action</option>
-                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                    (type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-
-              <textarea
-                value={expandedElement.auditElement?.action || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  handleTextChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'action',
-                    value
-                  );
-                }}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-                rows={3}
-              />
-
-              <div>
-                <select
-                  value={expandedElement.auditElement?.actionOwner || ''}
-                  onChange={(e) => onElementChange(
-                    expandedElement.auditElement?._id || expandedElement._id,
-                    'actionOwner',
-                    e.target.value
-                  )}
-                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Acteur</option>
-                  {(actors || []).map((actor) => (
-                    <option key={actor} value={actor}>
-                      {actor}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+          {sortedElements.map((expandedElement) => (
+            <AuditElementRow
+              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
+              expandedElement={expandedElement}
+              onElementDelete={onElementDelete}
+              onElementDuplicate={onElementDuplicate}
+              onElementChange={onElementChange}
+              handleTextChange={handleTextChange}
+              actors={actors}
+            />
           ))}
         </div>
       </div>
@@ -493,120 +405,16 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
     return (
       <div className="w-full">
-        {sortedElements.map((expandedElement: ExpandedElement) => (
-          <div 
-            key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`} 
-            className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
-          >
-            <div className="flex space-x-2 min-w-[60px] self-center">
-              <button
-                onClick={() => {
-                  onElementDelete(expandedElement._id);
-                }}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => {
-                  onElementDuplicate(expandedElement);
-                }}
-                className="text-green-500 hover:text-green-700"
-              >
-                <Copy className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="bg-gray-50 min-h-[80px] w-full">
-              {expandedElement.name}
-            </div>
-
-            <textarea
-              value={expandedElement.auditElement?.constat || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleTextChange(
-                  expandedElement.auditElement?._id || expandedElement._id,
-                  'constat',
-                  value
-                );
-              }}
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-              rows={3}
-            />
-
-            <div>
-              <StatusDropdown
-                value={expandedElement.auditElement?.status || ''}
-                onChange={(value) => onElementChange(
-                  expandedElement.auditElement?._id || expandedElement._id,
-                  'status',
-                  value
-                )}
-                options={[
-                  'Conforme',
-                  'Non conforme',
-                  'Observation',
-                  'Sans objet',
-                  'Pour information',
-                ]}
-              />
-            </div>
-
-            <div>
-              <select
-                value={expandedElement.auditElement?.actionType || ''}
-                onChange={(e) => onElementChange(
-                  expandedElement.auditElement?._id || expandedElement._id,
-                  'actionType',
-                  e.target.value
-                )}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Type d'action</option>
-                {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                  (type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-
-            <textarea
-              value={expandedElement.auditElement?.action || ''}
-              onChange={(e) => {
-                const value = e.target.value;
-                handleTextChange(
-                  expandedElement.auditElement?._id || expandedElement._id,
-                  'action',
-                  value
-                );
-              }}
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-              rows={3}
-            />
-
-            <div>
-              <select
-                value={expandedElement.auditElement?.actionOwner || ''}
-                onChange={(e) => onElementChange(
-                  expandedElement.auditElement?._id || expandedElement._id,
-                  'actionOwner',
-                  e.target.value
-                )}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Acteur</option>
-                {(actors || []).map((actor) => (
-                  <option key={actor} value={actor}>
-                    {actor}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+        {sortedElements.map((expandedElement) => (
+          <AuditElementRow
+            key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
+            expandedElement={expandedElement}
+            onElementDelete={onElementDelete}
+            onElementDuplicate={onElementDuplicate}
+            onElementChange={onElementChange}
+            handleTextChange={handleTextChange}
+            actors={actors}
+          />
         ))}
       </div>
     );
