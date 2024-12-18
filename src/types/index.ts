@@ -80,6 +80,10 @@ export interface TemplateElement {
   };
 }
 
+export interface ExpandedElement extends TemplateElement {
+  auditElement: AuditElement | null;
+}
+
 export interface AuditElement {
   auditId: string;
   templateElementId: string;

@@ -7,7 +7,8 @@ import {
   SubCategory,
   TemplateElement,
   AuditElement,
-  Regulatory
+  Regulatory,
+  ExpandedElement
 } from '../types';
 import { sortTemplateElements } from '../utils';
 import debounce from 'lodash/debounce';
@@ -89,6 +90,29 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
+  const expandTemplateElements = (templateElements: TemplateElement[], auditElements: AuditElement[]): ExpandedElement[] => {
+    return templateElements.flatMap((templateElement): ExpandedElement[] => {
+      // Find all audit elements for this template
+      const relatedAuditElements = auditElements.filter(
+        ae => ae.templateElementId === templateElement._id
+      );
+      
+      // If no audit elements, return the template element alone
+      if (relatedAuditElements.length === 0) {
+        return [{
+          ...templateElement,
+          auditElement: null
+        }];
+      }
+      
+      // Create duplicates for each audit element
+      return relatedAuditElements.map((auditElement): ExpandedElement => ({
+        ...templateElement,
+        auditElement
+      }));
+    });
+  };
+
   const renderElements = () => {
     if (templateVersion === 2) {
       // First get and sort sections
@@ -143,36 +167,24 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   };
 
   const renderCategory = (category: Category, sectionId?: string) => {
-    // Get subcategories for this category
-    const categorySubCategories = (subCategories || [])
-      .filter(subCategory => 
-        subCategory.categoryId === category._id && 
-        subCategory.templateVersion?.includes(templateVersion)
-      );
-
-    // Sort subcategories using sortTemplateElements
-    const sortedSubCategories = sortTemplateElements(
-      categorySubCategories.map(sc => ({ ...sc, _id: sc._id, categoryId: sc.categoryId })) as unknown as TemplateElement[],
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ).map(te => subCategories?.find(sc => sc._id === te._id)!);
-
-    // Get and sort template elements that are directly linked to this category (no subcategory)
-    const directTemplateElements = sortTemplateElements(
-      (templateElements || []).filter(element => 
-        element.categoryId === category._id && 
-        (!element.subCategoryId || element.subCategoryId === '') && 
-        element.templateVersion?.includes(templateVersion)
-      ),
-      categories,
-      subCategories,
-      sections,
-      templateVersion
+    // Get and sort template elements that are directly linked to this category
+    const directTemplateElements = templateElements.filter(element => 
+      element.categoryId === category._id && 
+      (!element.subCategoryId || element.subCategoryId === '') && 
+      element.templateVersion?.includes(templateVersion)
     );
 
-    if (sortedSubCategories.length === 0 && directTemplateElements.length === 0) return null;
+    // Expand template elements with their audit elements and sort them
+    const expandedElements = expandTemplateElements(directTemplateElements, auditElements);
+    const sortedElements = sortTemplateElements(
+      expandedElements,
+      categories,
+      subCategories,
+      sections,
+      templateVersion
+    ) as ExpandedElement[];
+
+    if (sortedElements.length === 0) return null;
 
     return (
       <div key={category._id} className="w-full mb-6">
@@ -180,17 +192,20 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         {sectionId && renderRegulatory(sectionId, category._id)}
         <div className="w-full space-y-6">
           {/* Render subcategories if any */}
-          {sortedSubCategories.map((subCategory) =>
+          {subCategories.filter(subCategory => subCategory.categoryId === category._id).map((subCategory) =>
             renderSubCategory(subCategory, category, sectionId)
           )}
           {/* Render direct template elements if any */}
-          {directTemplateElements.map((element) => (
-            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+          {sortedElements.map((expandedElement: ExpandedElement) => (
+            <div 
+              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`} 
+              className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
+            >
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => {
-                    console.log('Delete button clicked for element:', element._id);
-                    onElementDelete(element._id);
+                    console.log('Delete button clicked for element:', expandedElement._id);
+                    onElementDelete(expandedElement._id);
                   }}
                   className="text-red-500 hover:text-red-700"
                 >
@@ -198,8 +213,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
-                    onElementDuplicate(element);
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(expandedElement, null, 2));
+                    onElementDuplicate(expandedElement);
                   }}
                   className="text-green-500 hover:text-green-700"
                 >
@@ -208,14 +223,18 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <div className="bg-gray-50 min-h-[80px] w-full">
-                {element.name}
+                {expandedElement.name}
               </div>
 
               <textarea
-                value={getLocalValue(element._id, 'constat')}
+                value={expandedElement.auditElement?.constat || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  handleTextChange(element._id, 'constat', value);
+                  handleTextChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'constat',
+                    value
+                  );
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -223,8 +242,12 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
-                  onChange={(value) => onElementChange(element._id, 'status', value)}
+                  value={expandedElement.auditElement?.status || ''}
+                  onChange={(value) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'status',
+                    value
+                  )}
                   options={[
                     'Conforme',
                     'Non conforme',
@@ -237,11 +260,15 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
+                  value={expandedElement.auditElement?.actionType || ''}
+                  onChange={(e) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'actionType',
+                    e.target.value
+                  )}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Type d&apos;action</option>
+                  <option value="">Type d'action</option>
                   {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
                     (type) => (
                       <option key={type} value={type}>
@@ -253,10 +280,14 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={getLocalValue(element._id, 'action')}
+                value={expandedElement.auditElement?.action || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  handleTextChange(element._id, 'action', value);
+                  handleTextChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'action',
+                    value
+                  );
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -264,8 +295,12 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
+                  value={expandedElement.auditElement?.actionOwner || ''}
+                  onChange={(e) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'actionOwner',
+                    e.target.value
+                  )}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
@@ -283,33 +318,40 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const renderSubCategory = (subCategory: SubCategory, category: Category, sectionId?: string ) => {
+  const renderSubCategory = (subCategory: SubCategory, category: Category, sectionId?: string) => {
     // Get and sort template elements for this subcategory
-    const subCategoryElements = sortTemplateElements(
-      (templateElements || []).filter(element => 
-        element.subCategoryId === subCategory._id && 
-        element.templateVersion?.includes(templateVersion)
-      ),
+    const subCategoryElements = templateElements.filter(element => 
+      element.subCategoryId === subCategory._id && 
+      element.templateVersion?.includes(templateVersion)
+    );
+
+    // Expand template elements with their audit elements and sort them
+    const expandedElements = expandTemplateElements(subCategoryElements, auditElements);
+    const sortedElements = sortTemplateElements(
+      expandedElements,
       categories,
       subCategories,
       sections,
       templateVersion
-    );
+    ) as ExpandedElement[];
 
-    if (subCategoryElements.length === 0) return null;
+    if (sortedElements.length === 0) return null;
 
     return (
       <div key={subCategory._id} className="w-full">
         <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
         {sectionId && renderRegulatory(sectionId, category._id, subCategory._id)}
         <div className="w-full space-y-4">
-          {subCategoryElements.map((element) => (
-            <div key={element._id} className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200">
+          {sortedElements.map((expandedElement: ExpandedElement) => (
+            <div 
+              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`} 
+              className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
+            >
               <div className="flex space-x-2 min-w-[60px] self-center">
                 <button
                   onClick={() => {
-                    console.log('Delete button clicked for element:', element._id);
-                    onElementDelete(element._id);
+                    console.log('Delete button clicked for element:', expandedElement._id);
+                    onElementDelete(expandedElement._id);
                   }}
                   className="text-red-500 hover:text-red-700"
                 >
@@ -317,8 +359,8 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
                 </button>
                 <button
                   onClick={() => {
-                    console.log('Duplicate button clicked - Full element:', JSON.stringify(element, null, 2));
-                    onElementDuplicate(element);
+                    console.log('Duplicate button clicked - Full element:', JSON.stringify(expandedElement, null, 2));
+                    onElementDuplicate(expandedElement);
                   }}
                   className="text-green-500 hover:text-green-700"
                 >
@@ -327,14 +369,18 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <div className="bg-gray-50 min-h-[80px] w-full">
-                {element.name}
+                {expandedElement.name}
               </div>
 
               <textarea
-                value={getLocalValue(element._id, 'constat')}
+                value={expandedElement.auditElement?.constat || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  handleTextChange(element._id, 'constat', value);
+                  handleTextChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'constat',
+                    value
+                  );
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -342,8 +388,12 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <StatusDropdown
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.status || ''}
-                  onChange={(value) => onElementChange(element._id, 'status', value)}
+                  value={expandedElement.auditElement?.status || ''}
+                  onChange={(value) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'status',
+                    value
+                  )}
                   options={[
                     'Conforme',
                     'Non conforme',
@@ -356,11 +406,15 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionType || ''}
-                  onChange={(e) => onElementChange(element._id, 'actionType', e.target.value)}
+                  value={expandedElement.auditElement?.actionType || ''}
+                  onChange={(e) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'actionType',
+                    e.target.value
+                  )}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Type d&apos;action</option>
+                  <option value="">Type d'action</option>
                   {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
                     (type) => (
                       <option key={type} value={type}>
@@ -372,10 +426,14 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               </div>
 
               <textarea
-                value={getLocalValue(element._id, 'action')}
+                value={expandedElement.auditElement?.action || ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  handleTextChange(element._id, 'action', value);
+                  handleTextChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'action',
+                    value
+                  );
                 }}
                 className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
                 rows={3}
@@ -383,8 +441,12 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
               <div>
                 <select
-                  value={auditElements.find(ae => ae._id === element._id || ae.templateElementId === element._id)?.actionOwner || ''}
-                  onChange={(e) => onElementChange(element._id, 'actionOwner', e.target.value)}
+                  value={expandedElement.auditElement?.actionOwner || ''}
+                  onChange={(e) => onElementChange(
+                    expandedElement.auditElement?._id || expandedElement._id,
+                    'actionOwner',
+                    e.target.value
+                  )}
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
