@@ -40,7 +40,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
       handleElementChange(elementId, field, value);
-    }, 500),
+    }, 1000),
     []
   );
 
@@ -51,6 +51,10 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
     const newChangedElements = [...changedElements, { elementId, field, value }];
     setChangedElements(newChangedElements);
+  };
+
+  const handleAuditElementChange = (elementId: string, field: string, value: string) => {
+    debouncedElementChange(elementId, field, value);
   };
 
   const handleElementDuplicate = (element: any) => {
@@ -70,14 +74,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     const newDeletedElements = [...deletedElements, elementId];
     setDeletedElements(newDeletedElements);
   };
-
-  useEffect(() => {
-    console.log('AuditForm - templateElements updated:', JSON.stringify({
-      length: templateElements.length,
-      sample: templateElements.slice(0, 2),
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
 
   const handleElementAdd = (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => {
     console.log('🔍 AuditForm handleElementAdd - Raw input:', {
@@ -102,24 +98,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         templateVersion: [audit.templateVersion]
       };
 
-      console.log('🔍 AuditForm - Data for Retool:', {
-        data: retoolData,
-        validation: {
-          categoryId: {
-            value: retoolData.categoryId,
-            type: typeof retoolData.categoryId
-          },
-          subCategoryId: {
-            value: retoolData.subCategoryId,
-            type: typeof retoolData.subCategoryId
-          },
-          name: {
-            value: retoolData.name,
-            type: typeof retoolData.name
-          }
-        }
-      });
-
       onTemplateElementAdd(retoolData);
     }
 
@@ -138,13 +116,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       onElementAdd(elementData);
     }
   };
-
-  React.useEffect(() => {
-    console.log('AuditForm templateElements changed:', JSON.stringify({
-      length: templateElements.length,
-      timestamp: new Date().toISOString()
-    }, null, 2));
-  }, [templateElements]);
 
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
@@ -265,7 +236,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           regulatories={regulatories}
           templateVersion={audit.templateVersion}
           actors={audit.actors}
-          onElementChange={handleElementChange}
+          onAuditElementChange={handleAuditElementChange}
           onElementDuplicate={handleElementDuplicate}
           onElementDelete={handleElementDelete}
           onElementAdd={handleElementAdd}

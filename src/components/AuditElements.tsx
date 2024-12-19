@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import {
@@ -11,7 +11,6 @@ import {
   ExpandedElement
 } from '../types';
 import { sortTemplateElements, sortByPosition } from '../utils';
-import debounce from 'lodash/debounce';
 
 interface AuditElementsProps {
   sections: Section[];
@@ -22,7 +21,7 @@ interface AuditElementsProps {
   regulatories: Regulatory[];
   templateVersion: number;
   actors: string[];
-  onElementChange: (elementId: string, field: string, value: any) => void;
+  onAuditElementChange: (elementId: string, field: string, value: string) => void;
   onElementDuplicate: (element: ExpandedElement) => void;
   onElementDelete: (elementId: string) => void;
   onElementAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
@@ -32,8 +31,7 @@ interface AuditElementRowProps {
   expandedElement: ExpandedElement;
   onElementDelete: (elementId: string) => void;
   onElementDuplicate: (element: ExpandedElement) => void;
-  onElementChange: (elementId: string, field: string, value: any) => void;
-  handleTextChange: (elementId: string, field: string, value: string) => void;
+  onAuditElementChange: (elementId: string, field: string, value: string) => void;
   actors: string[];
 }
 
@@ -41,113 +39,140 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
   expandedElement,
   onElementDelete,
   onElementDuplicate,
-  onElementChange,
-  handleTextChange,
+  onAuditElementChange,
   actors,
-}) => (
-  <div 
-    className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
-  >
-    <div className="flex space-x-2 min-w-[60px] self-center">
-      <button
-        onClick={() => onElementDelete(expandedElement._id)}
-        className="text-red-500 hover:text-red-700"
-      >
-        <Trash2 className="h-5 w-5" />
-      </button>
-      <button
-        onClick={() => onElementDuplicate(expandedElement)}
-        className="text-green-500 hover:text-green-700"
-      >
-        <Copy className="h-5 w-5" />
-      </button>
-    </div>
+}) => {
+  const [textValues, setTextValues] = useState<{[key: string]: string}>({});
+  const [dropdownValues, setDropdownValues] = useState<{[key: string]: string}>({
+    status: expandedElement.auditElement?.status || '',
+    actionType: expandedElement.auditElement?.actionType || '',
+    actionOwner: expandedElement.auditElement?.actionOwner || ''
+  });
 
-    <div className="bg-gray-50 min-h-[80px] w-full">
-      {expandedElement.name}
-    </div>
+  const handleTextChange = (elementId: string, field: string, value: string) => {
+    setTextValues(prev => ({
+      ...prev,
+      [`${elementId}-${field}`]: value
+    }));
+    onAuditElementChange(elementId, field, value);
+  };
 
-    <textarea
-      value={expandedElement.auditElement?.constat || ''}
-      onChange={(e) => handleTextChange(
-        expandedElement.auditElement?._id || expandedElement._id,
-        'constat',
-        e.target.value
-      )}
-      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-      rows={3}
-    />
+  const handleDropdownChange = (field: string, value: string) => {
+    setDropdownValues(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    onAuditElementChange(
+      expandedElement.auditElement?._id || expandedElement._id,
+      field,
+      value
+    );
+  };
 
-    <div>
-      <StatusDropdown
-        value={expandedElement.auditElement?.status || ''}
-        onChange={(value) => onElementChange(
+  const getTextValue = (elementId: string, field: 'constat' | 'action') => {
+    const localValue = textValues[`${elementId}-${field}`];
+    return localValue !== undefined ? localValue : expandedElement.auditElement?.[field] || '';
+  };
+
+  const getDropdownValue = (field: 'status' | 'actionType' | 'actionOwner') => {
+    return dropdownValues[field] !== undefined 
+      ? dropdownValues[field] 
+      : expandedElement.auditElement?.[field] || '';
+  };
+
+  return (
+    <div 
+      className="grid grid-cols-[auto,2fr,3fr,1.5fr,1.5fr,3fr,1.5fr] gap-x-6 mb-2 p-2 bg-white rounded-lg shadow-sm w-full border border-gray-200"
+    >
+      <div className="flex space-x-2 min-w-[60px] self-center">
+        <button
+          onClick={() => onElementDelete(expandedElement.auditElement?._id)}
+          className="text-red-500 hover:text-red-700"
+        >
+          <Trash2 className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => onElementDuplicate(expandedElement)}
+          className="text-green-500 hover:text-green-700"
+        >
+          <Copy className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="bg-gray-50 min-h-[80px] w-full">
+        {expandedElement.name}
+      </div>
+
+      <textarea
+        value={getTextValue(expandedElement.auditElement?._id || expandedElement._id, 'constat')}
+        onChange={(e) => handleTextChange(
           expandedElement.auditElement?._id || expandedElement._id,
-          'status',
-          value
+          'constat',
+          e.target.value
         )}
-        options={[
-          'Conforme',
-          'Non conforme',
-          'Observation',
-          'Sans objet',
-          'Pour information',
-        ]}
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+        rows={3}
       />
-    </div>
 
-    <div>
-      <select
-        value={expandedElement.auditElement?.actionType || ''}
-        onChange={(e) => onElementChange(
+      <div>
+        <StatusDropdown
+          value={getDropdownValue('status')}
+          onChange={(value) => handleDropdownChange('status', value)}
+          options={[
+            'Conforme',
+            'Non conforme',
+            'Observation',
+            'Sans objet',
+            'Pour information',
+          ]}
+        />
+      </div>
+
+      <div>
+        <select
+          value={getDropdownValue('actionType')}
+          onChange={(e) => handleDropdownChange('actionType', e.target.value)}
+          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Type d&apos;action</option>
+          {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+            (type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            )
+          )}
+        </select>
+      </div>
+
+      <textarea
+        value={getTextValue(expandedElement.auditElement?._id || expandedElement._id, 'action')}
+        onChange={(e) => handleTextChange(
           expandedElement.auditElement?._id || expandedElement._id,
-          'actionType',
+          'action',
           e.target.value
         )}
-        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="">Type d&apos;action</option>
-        {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-          (type) => (
-            <option key={type} value={type}>
-              {type}
+        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+        rows={3}
+      />
+
+      <div>
+        <select
+          value={getDropdownValue('actionOwner')}
+          onChange={(e) => handleDropdownChange('actionOwner', e.target.value)}
+          className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Acteur</option>
+          {actors.map((actor) => (
+            <option key={actor} value={actor}>
+              {actor}
             </option>
-          )
-        )}
-      </select>
+          ))}
+        </select>
+      </div>
     </div>
-
-    <textarea
-      value={expandedElement.auditElement?.action || ''}
-      onChange={(e) => handleTextChange(
-        expandedElement.auditElement?._id || expandedElement._id,
-        'action',
-        e.target.value
-      )}
-      className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
-      rows={3}
-    />
-
-    <div>
-      <select
-        value={expandedElement.auditElement?.actionOwner || ''}
-        onChange={(e) => onElementChange(
-          expandedElement.auditElement?._id || expandedElement._id,
-          'actionOwner',
-          e.target.value
-        )}
-        className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="">Acteur</option>
-        {actors.map((actor) => (
-          <option key={actor} value={actor}>
-            {actor}
-          </option>
-        ))}
-      </select>
-    </div>
-  </div>
-);
+  );
+};
 
 export const AuditElements: React.FC<AuditElementsProps> = ({
   sections,
@@ -158,39 +183,11 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   regulatories,
   templateVersion,
   actors,
-  onElementChange,
+  onAuditElementChange,
   onElementDuplicate,
   onElementDelete,
   onElementAdd,
 }) => {
-  const [localState, setLocalState] = React.useState<{[key: string]: string}>({});
-
-  const debouncedElementChange = useCallback(
-    debounce((elementId: string, field: string, value: any) => {
-      onElementChange(elementId, field, value);
-    }, 300),
-    [onElementChange]
-  );
-
-  const handleTextChange = (elementId: string, field: string, value: string) => {
-    // Update local state immediately
-    setLocalState(prev => ({
-      ...prev,
-      [`${elementId}-${field}`]: value
-    }));
-    // Debounce the actual change
-    debouncedElementChange(elementId, field, value);
-  };
-
-  const getLocalValue = (elementId: string, field: string) => {
-    const localValue = localState[`${elementId}-${field}`];
-    if (localValue !== undefined) {
-      return localValue;
-    }
-    const auditElement = auditElements.find(ae => ae._id === elementId || ae.templateElementId === elementId);
-    return auditElement ? (auditElement as any)[field] || '' : '';
-  };
-
   const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string) => {
     const regulatory = regulatories.find(
       r =>
@@ -333,8 +330,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               expandedElement={expandedElement}
               onElementDelete={onElementDelete}
               onElementDuplicate={onElementDuplicate}
-              onElementChange={onElementChange}
-              handleTextChange={handleTextChange}
+              onAuditElementChange={onAuditElementChange}
               actors={actors}
             />
           ))}
@@ -373,8 +369,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
               expandedElement={expandedElement}
               onElementDelete={onElementDelete}
               onElementDuplicate={onElementDuplicate}
-              onElementChange={onElementChange}
-              handleTextChange={handleTextChange}
+              onAuditElementChange={onAuditElementChange}
               actors={actors}
             />
           ))}
@@ -411,8 +406,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             expandedElement={expandedElement}
             onElementDelete={onElementDelete}
             onElementDuplicate={onElementDuplicate}
-            onElementChange={onElementChange}
-            handleTextChange={handleTextChange}
+            onAuditElementChange={onAuditElementChange}
             actors={actors}
           />
         ))}
