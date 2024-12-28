@@ -1,4 +1,4 @@
-import { Section, Category, SubCategory, TemplateElement, AuditElement } from '../types';
+import { Section, Category, SubCategory, TemplateElement, AuditElement, ExpandedElement } from '../types';
 
 export const sortByPosition = (items: any[], templateVersion: number): any[] => {
   return [...items].sort((a, b) => {
@@ -10,6 +10,10 @@ export const sortByPosition = (items: any[], templateVersion: number): any[] => 
 
 export const sortSections = (sections: Section[]): Section[] => {
   return [...sections].sort((a, b) => a.position - b.position);
+};
+
+export const sortSectionsByPosition = (sections: Section[]): Section[] => {
+  return [...sections].sort((a, b) => (a.position || 0) - (b.position || 0));
 };
 
 export const getHierarchyPath = (
@@ -142,5 +146,31 @@ export const sortTemplateElements = (
 
     // Compare element positions
     return posA.elementPos - posB.elementPos;
+  });
+};
+
+export const sortExpandedTemplateElements = (
+  elements: ExpandedElement[],
+  templateVersion: number
+): ExpandedElement[] => {
+  return [...elements].sort((a, b) => {
+    // Find the index of the current version in templateVersion array
+    const indexA = a.templateVersion?.indexOf(templateVersion) ?? -1;
+    const indexB = b.templateVersion?.indexOf(templateVersion) ?? -1;
+
+    // Use the found index to get the corresponding position
+    // If version not found (index === -1) or position not available, use Infinity
+    const posA = indexA !== -1 && a.positionByVersion?.[indexA] !== undefined 
+      ? a.positionByVersion[indexA] 
+      : Infinity;
+    const posB = indexB !== -1 && b.positionByVersion?.[indexB] !== undefined 
+      ? b.positionByVersion[indexB] 
+      : Infinity;
+
+    // If positions are equal, sort by name for stability
+    if (posA === posB) {
+      return (a.name || '').localeCompare(b.name || '');
+    }
+    return posA - posB;
   });
 };

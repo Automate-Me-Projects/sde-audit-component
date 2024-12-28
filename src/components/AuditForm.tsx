@@ -104,7 +104,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     // If we have an onElementAdd callback, call it with the element data
     if (onElementAdd) {
       const elementData = {
-        _id: generateTempId(),
         name,
         categoryId,
         subCategoryId,
@@ -113,7 +112,13 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       };
 
       console.log('🔍 AuditForm - Calling onElementAdd with elementData:', elementData);
-      onElementAdd(elementData);
+      onElementAdd(
+        null, // sectionId is always null for template elements
+        elementData.categoryId,
+        elementData.subCategoryId,
+        elementData.name,
+        elementData.positionByVersion[0]
+      );
     }
   };
 

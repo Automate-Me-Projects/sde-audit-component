@@ -10,7 +10,7 @@ import {
   Regulatory,
   ExpandedElement
 } from '../types';
-import { sortTemplateElements, sortByPosition } from '../utils';
+import { sortByPosition, sortExpandedTemplateElements, sortSectionsByPosition } from '../utils';
 
 interface AuditElementsProps {
   sections: Section[];
@@ -86,7 +86,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
     >
       <div className="flex space-x-2 min-w-[60px] self-center">
         <button
-          onClick={() => onElementDelete(expandedElement.auditElement?._id)}
+          onClick={() => expandedElement.auditElement?._id && onElementDelete(expandedElement.auditElement._id)}
           className="text-red-500 hover:text-red-700"
         >
           <Trash2 className="h-5 w-5" />
@@ -188,7 +188,39 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   onElementDelete,
   onElementAdd,
 }) => {
-  const renderRegulatory = (sectionId: string, categoryId: string, subCategoryId?: string) => {
+  const expandTemplateElements = (elements: TemplateElement[]): ExpandedElement[] => {
+    return elements.map(templateElement => ({
+      ...templateElement,
+      auditElement: auditElements.find(ae => ae.templateElementId === templateElement._id) || null
+    }));
+  };
+
+  const getTemplateElementsForSubCategory = (subCategory: SubCategory): ExpandedElement[] => {
+    // Get template elements for this subcategory that match the version
+    const elements = templateElements.filter(element => 
+      element.subCategoryId === subCategory._id && 
+      element.templateVersion?.includes(templateVersion)
+    );
+    
+    // Expand with audit elements and sort
+    const expandedElements = expandTemplateElements(elements);
+    return sortExpandedTemplateElements(expandedElements, templateVersion);
+  };
+
+  const getDirectTemplateElements = (categoryId: string): ExpandedElement[] => {
+    // Get template elements directly under category (no subcategory) that match the version
+    const elements = templateElements.filter(element => 
+      element.categoryId === categoryId && 
+      !element.subCategoryId && 
+      element.templateVersion?.includes(templateVersion)
+    );
+    
+    // Expand with audit elements and sort
+    const expandedElements = expandTemplateElements(elements);
+    return sortExpandedTemplateElements(expandedElements, templateVersion);
+  };
+
+  const renderRegulatory = (sectionId: string | null | undefined, categoryId: string, subCategoryId?: string) => {
     const regulatory = regulatories.find(
       r =>
         r.sectionId === sectionId &&
@@ -208,45 +240,82 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const expandTemplateElements = (templateElements: TemplateElement[], auditElements: AuditElement[]): ExpandedElement[] => {
-    return templateElements.flatMap((templateElement): ExpandedElement[] => {
-      // Find all audit elements for this template
-      const relatedAuditElements = auditElements.filter(
-        ae => ae.templateElementId === templateElement._id
-      );
-      
-      // If no audit elements, return the template element alone
-      if (relatedAuditElements.length === 0) {
-        return [{
-          ...templateElement,
-          auditElement: null
-        }];
-      }
-      
-      // Create duplicates for each audit element
-      return relatedAuditElements.map((auditElement): ExpandedElement => ({
-        ...templateElement,
-        auditElement
-      }));
-    });
+  const renderSubCategory = (subCategory: SubCategory) => {
+    const sortedElements = getTemplateElementsForSubCategory(subCategory);
+    
+    // Only render subcategory if it has template elements
+    if (sortedElements.length === 0) return null;
+
+    return (
+      <div key={subCategory._id} className="ml-6">
+        <h4 className="text-[rgb(146,208,80)] font-medium mb-3">{subCategory.name}</h4>
+        <div className="space-y-4">
+          {sortedElements.map((expandedElement) => (
+            <AuditElementRow
+              key={expandedElement._id}
+              expandedElement={expandedElement}
+              onElementDelete={onElementDelete}
+              onElementDuplicate={onElementDuplicate}
+              onAuditElementChange={onAuditElementChange}
+              actors={actors}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCategory = (category: Category, sectionId?: string) => {
+    // Get direct template elements (no subcategory)
+    const directElements = getDirectTemplateElements(category._id);
+    
+    // Get subcategories for this category and sort them by position
+    const categorySubCategories = sortByPosition(
+      subCategories.filter(sc => sc.categoryId === category._id),
+      templateVersion
+    );
+
+    // Only render category if it has either direct elements or subcategories with elements
+    if (directElements.length === 0 && categorySubCategories.length === 0) return null;
+
+    return (
+      <div key={category._id} className="mb-8">
+        <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
+        {sectionId && renderRegulatory(sectionId, category._id)}
+        <div className="w-full space-y-6">
+          {/* Render subcategories */}
+          {categorySubCategories.map(subCategory => 
+            renderSubCategory(subCategory)
+          )}
+          {/* Render direct template elements */}
+          {directElements.map(expandedElement => (
+            <AuditElementRow
+              key={expandedElement._id}
+              expandedElement={expandedElement}
+              onElementDelete={onElementDelete}
+              onElementDuplicate={onElementDuplicate}
+              onAuditElementChange={onAuditElementChange}
+              actors={actors}
+            />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const renderElements = () => {
     if (templateVersion === 2) {
       // First get and sort sections
-      const validSections = (sections || [])
-        .filter(section => section.templateVersion?.includes(templateVersion))
-        .sort((a, b) => (a.position || 0) - (b.position || 0));
+      const validSections = sortSectionsByPosition(
+        (sections || []).filter(section => section.templateVersion?.includes(templateVersion))
+      );
 
       return validSections.map((section) => {
         // For each section, get its categories
-        const sectionCategories = (categories || [])
-          .filter(category => category.section === section._id)
-          .sort((a, b) => {
-            const posA = a.positionByVersion[a.templateVersion.indexOf(templateVersion)] || 0;
-            const posB = b.positionByVersion[b.templateVersion.indexOf(templateVersion)] || 0;
-            return posA - posB;
-          });
+        const sectionCategories = sortByPosition(
+          (categories || []).filter(category => category.section === section._id),
+          templateVersion
+        );
 
         return (
           <div key={section._id} className="w-full mb-8">
@@ -270,148 +339,34 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
     return sortedCategories.map(category => {
       // Get subcategories for this category
-      const categorySubCategories = (subCategories || [])
-        .filter(sc => sc.categoryId === category._id)
-        .sort((a, b) => {
-          const posA = a.positionByVersion[a.templateVersion.indexOf(templateVersion)] || 0;
-          const posB = b.positionByVersion[b.templateVersion.indexOf(templateVersion)] || 0;
-          return posA - posB;
-        });
+      const categorySubCategories = sortByPosition(
+        (subCategories || []).filter(sc => sc.categoryId === category._id),
+        templateVersion
+      );
 
       return (
         <div key={category._id} className="w-full">
-          <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
+          <h3 className="text-[rgb(146,208,80)] text-lg font-semibold mb-3">{category.name}</h3>
           <div className="w-full space-y-6">
             {/* Render subcategories if any */}
             {categorySubCategories.map((subCategory) =>
-              renderSubCategory(subCategory, category)
+              renderSubCategory(subCategory)
             )}
             {/* Render direct template elements if any */}
-            {renderDirectTemplateElements(category)}
+            {getDirectTemplateElements(category._id).map((expandedElement) => (
+              <AuditElementRow
+                key={expandedElement._id}
+                expandedElement={expandedElement}
+                onElementDelete={onElementDelete}
+                onElementDuplicate={onElementDuplicate}
+                onAuditElementChange={onAuditElementChange}
+                actors={actors}
+              />
+            ))}
           </div>
         </div>
       );
     });
-  };
-
-  const renderCategory = (category: Category, sectionId?: string) => {
-    // Get and sort template elements that are directly linked to this category
-    const directTemplateElements = templateElements.filter(element => 
-      element.categoryId === category._id && 
-      (!element.subCategoryId || element.subCategoryId === '') && 
-      element.templateVersion?.includes(templateVersion)
-    );
-
-    // Expand template elements with their audit elements and sort them
-    const expandedElements = expandTemplateElements(directTemplateElements, auditElements);
-    const sortedElements = sortTemplateElements(
-      expandedElements,
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ) as ExpandedElement[];
-
-    if (sortedElements.length === 0) return null;
-
-    return (
-      <div key={category._id} className="w-full mb-6">
-        <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
-        {sectionId && renderRegulatory(sectionId, category._id)}
-        <div className="w-full space-y-6">
-          {/* Render subcategories if any */}
-          {subCategories.filter(subCategory => subCategory.categoryId === category._id).map((subCategory) =>
-            renderSubCategory(subCategory, category, sectionId)
-          )}
-          {/* Render direct template elements if any */}
-          {sortedElements.map((expandedElement) => (
-            <AuditElementRow
-              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
-              expandedElement={expandedElement}
-              onElementDelete={onElementDelete}
-              onElementDuplicate={onElementDuplicate}
-              onAuditElementChange={onAuditElementChange}
-              actors={actors}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderSubCategory = (subCategory: SubCategory, category: Category, sectionId?: string) => {
-    // Get and sort template elements for this subcategory
-    const subCategoryElements = templateElements.filter(element => 
-      element.subCategoryId === subCategory._id && 
-      element.templateVersion?.includes(templateVersion)
-    );
-
-    // Expand template elements with their audit elements and sort them
-    const expandedElements = expandTemplateElements(subCategoryElements, auditElements);
-    const sortedElements = sortTemplateElements(
-      expandedElements,
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ) as ExpandedElement[];
-
-    if (sortedElements.length === 0) return null;
-
-    return (
-      <div key={subCategory._id} className="w-full">
-        <h4 className="text-[rgb(146,208,80)] text-base font-medium mb-2">{subCategory.name}</h4>
-        {sectionId && renderRegulatory(sectionId, category._id, subCategory._id)}
-        <div className="w-full space-y-4">
-          {sortedElements.map((expandedElement) => (
-            <AuditElementRow
-              key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
-              expandedElement={expandedElement}
-              onElementDelete={onElementDelete}
-              onElementDuplicate={onElementDuplicate}
-              onAuditElementChange={onAuditElementChange}
-              actors={actors}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderDirectTemplateElements = (category: Category) => {
-    // Get and sort template elements that are directly linked to this category
-    const directTemplateElements = templateElements.filter(element => 
-      element.categoryId === category._id && 
-      (!element.subCategoryId || element.subCategoryId === '') && 
-      element.templateVersion?.includes(templateVersion)
-    );
-
-    // Expand template elements with their audit elements and sort them
-    const expandedElements = expandTemplateElements(directTemplateElements, auditElements);
-    const sortedElements = sortTemplateElements(
-      expandedElements,
-      categories,
-      subCategories,
-      sections,
-      templateVersion
-    ) as ExpandedElement[];
-
-    if (sortedElements.length === 0) return null;
-
-    return (
-      <div className="w-full">
-        {sortedElements.map((expandedElement) => (
-          <AuditElementRow
-            key={`${expandedElement._id}-${expandedElement.auditElement?._id || 'template'}`}
-            expandedElement={expandedElement}
-            onElementDelete={onElementDelete}
-            onElementDuplicate={onElementDuplicate}
-            onAuditElementChange={onAuditElementChange}
-            actors={actors}
-          />
-        ))}
-      </div>
-    );
   };
 
   return (
