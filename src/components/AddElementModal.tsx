@@ -1,18 +1,7 @@
 import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X } from 'lucide-react';
-import { Section, Category, SubCategory, TemplateElement } from '../types';
-
-interface AddElementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
-  sections: Section[];
-  categories: Category[];
-  subCategories: SubCategory[];
-  templateVersion: number;
-  templateElements: TemplateElement[];
-}
+import { Section, Category, SubCategory, AddElementModalProps } from '../types';
 
 export const AddElementModal: React.FC<AddElementModalProps> = ({
   isOpen,
@@ -35,21 +24,21 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
 
   const filteredSubCategories = (subCategories || []).filter(s => s.categoryId === selectedCategory?._id);
 
+  const handleSectionSelect = (section: Section | null) => {
+    setSelectedSection(section);
+    setSelectedCategory(null);
+    setSelectedSubCategory(null);
+    setElementName('');
+  };
+
   const handleCategorySelect = (category: Category) => {
     setSelectedCategory(category);
     setSelectedSubCategory(null);
-    setSelectedSection(null);
     setElementName('');
   };
 
   const handleSubCategorySelect = (subCategory: SubCategory) => {
     setSelectedSubCategory(subCategory);
-    setSelectedSection(null);
-    setElementName('');
-  };
-
-  const handleSectionSelect = (section: Section | null) => {
-    setSelectedSection(section);
     setElementName('');
   };
 
@@ -80,7 +69,6 @@ export const AddElementModal: React.FC<AddElementModalProps> = ({
     const position = relatedElements.length + 1;
 
     onAdd(
-      selectedSection?._id || null,
       selectedCategory._id,
       selectedSubCategory?._id || null,
       elementName,

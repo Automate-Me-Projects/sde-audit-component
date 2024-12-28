@@ -52,8 +52,21 @@ export const isTemplateElementPresent = (
   return templateElements.some(te => te._id === templateElement._id);
 };
 
-export const generateTempId = (): string => {
-  return `temp${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+export const generateTempId = () => 'temp_' + Math.random().toString(36).substr(2, 9);
+
+export const createTimestamp = () => ({
+  _seconds: Math.floor(Date.now() / 1000),
+  _nanoseconds: (Date.now() % 1000) * 1000000
+});
+
+export const formatDate = (date: string | null | undefined): string => {
+  if (!date) return '';
+  const dateObject = new Date(date);
+  const months = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+  ];
+  return `${months[dateObject.getMonth()]} ${dateObject.getFullYear()}`;
 };
 
 export const compareImageNames = (a: string, b: string): number => {

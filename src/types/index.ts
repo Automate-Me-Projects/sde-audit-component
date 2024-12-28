@@ -63,7 +63,6 @@ export interface SubCategory {
 
 export interface TemplateElement {
   _id: string;
-  sectionId: string | null;
   categoryId: string;
   subCategoryId: string | null;
   isDefault: boolean;
@@ -80,25 +79,29 @@ export interface TemplateElement {
   };
 }
 
-export interface ExpandedElement extends TemplateElement {
+export type ExpandedElement = TemplateElement & {
   auditElement: AuditElement | null;
-}
+};
 
 export interface AuditElement {
   auditId: string;
   templateElementId: string;
   categoryId: string;
-  subCategoryId: string;
-  status: string;
-  constat: string;
+  subCategoryId: string| null;
+  status: string| null;
+  constat: string | null;
   actionType: string | null;
   actionOwner: string | null;
   action: string | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  };
+  updatedAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  };
   _id: string;
-  name: string;
-  positionByVersion: readonly number[];
 }
 
 export interface Regulatory {
@@ -138,15 +141,62 @@ export interface AuditFormProps {
   auditElements: AuditElement[];
   regulatories: Regulatory[];
   images: Image[];
+  onAuditChange?: (field: string, value: any) => void;
   onElementChange?: (elementId: string, field: string, value: any) => void;
   onElementDuplicate?: (element: TemplateElement) => void;
-  onElementDelete?: (elementId: string) => void;
-  onElementAdd?: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
-  onTemplateElementAdd?: (data: {
-    categoryId: string;
-    subCategoryId: string | null;
-    name: string;
-    positionByVersion: number[];
-    templateVersion: number[];
-  }) => void;
+  onElementDelete?: (element: ExpandedElement) => void;
+  onElementAdd?: (
+    name: string, 
+    subCategoryId: string | null, 
+    categoryId: string,
+  ) => void;
+  onTemplateElementAdd?: (
+    _id: string,
+    name: string,
+    subCategoryId: string | null,
+    categoryId: string,
+    positionByVersion: number[],
+  ) => void;
+}
+
+export interface AddElementModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (name: string, subCategoryId: string | null, categoryId: string, position: number) => void;
+  sections: Section[];
+  categories: Category[];
+  subCategories: SubCategory[];
+  templateVersion: number;
+  templateElements: TemplateElement[];
+}
+
+export interface AuditElementsProps {
+  sections: Section[];
+  categories: Category[];
+  subCategories: SubCategory[];
+  templateElements: TemplateElement[];
+  auditElements: AuditElement[];
+  regulatories: Regulatory[];
+  templateVersion: number;
+  actors: string[];
+  onAuditElementChange: (elementId: string, field: string, value: string) => void;
+  onElementDuplicate: (element: ExpandedElement) => void;
+  onElementDelete: (element: ExpandedElement) => void;
+}
+
+export interface AuditElementRowProps {
+  expandedElement: ExpandedElement;
+  onElementDelete: (element: ExpandedElement) => void;
+  onElementDuplicate: (element: ExpandedElement) => void;
+  onAuditElementChange: (elementId: string, field: string, value: string) => void;
+  actors: string[];
+}
+export interface ElementDropdownProps {
+  sections: Section[];
+  categories: Category[];
+  subCategories: SubCategory[];
+  templateElements: TemplateElement[];
+  allTemplateElements: TemplateElement[];
+  templateVersion: number;
+  onSelect: (categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }

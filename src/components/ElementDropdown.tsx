@@ -1,18 +1,8 @@
 import React from 'react';
 import { Listbox, Transition } from '@headlessui/react';
 import { ChevronsUpDownIcon } from 'lucide-react';
-import { Section, Category, SubCategory, TemplateElement } from '../types';
+import { ElementDropdownProps, TemplateElement } from '../types';
 import { getHierarchyPath, isTemplateElementPresent, sortTemplateElements } from '../utils';
-
-interface ElementDropdownProps {
-  sections: Section[];
-  categories: Category[];
-  subCategories: SubCategory[];
-  templateElements: TemplateElement[];
-  allTemplateElements: TemplateElement[];
-  templateVersion: number;
-  onSelect: (sectionId: string | null, categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
-}
 
 export const ElementDropdown: React.FC<ElementDropdownProps> = ({
   sections,
@@ -38,7 +28,6 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
       const position = versionIndex !== -1 ? element.positionByVersion[versionIndex] : 0;
       
       onSelect(
-        element.sectionId || null,
         element.categoryId,
         element.subCategoryId || null,
         element.name,
@@ -51,14 +40,6 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
       setSelectedElement(null);
     });
   };
-
-  // Ensure dropdown options are always up to date
-  React.useEffect(() => {
-  }, [allTemplateElements, templateElements, templateVersion]);
-
-  // Track selection changes
-  React.useEffect(() => {
-  }, [selectedElement]);
 
   // Reset selection when template elements change
   React.useEffect(() => {
