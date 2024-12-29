@@ -193,7 +193,11 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
-          onCapacityChange={(id, value) => onICPEBuildingChange(id, 'capacity', value)}
+          onCapacityChange={(id, value) => {
+            if (onICPEBuildingChange) {
+              onICPEBuildingChange(id, 'capacity', value);
+            }
+          }}
         />
 
         <div className="border-t-2 border-[rgb(0,106,60)]" />
