@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
@@ -15,7 +15,7 @@ import type {
   Image,
 } from './types';
 import './output.css';
-import { generateTempId, createTimestamp } from './utils';
+import { generateTempId, createTimestamp, debounce } from './utils';
 
 export const AuditFormComponent: FC = () => {
   const [audit, setAudit] = Retool.useStateObject({
@@ -149,7 +149,7 @@ export const AuditFormComponent: FC = () => {
         onTemplateElementAdd();
         setNewTemplateElement(null);
         break;
-      case 'ICPEBuildingChange':
+      case 'buildingChange':
         setChangedBuilding(data);
         onBuildingChange();
         setChangedBuilding(null);
@@ -363,15 +363,37 @@ export const AuditFormComponent: FC = () => {
     triggerEvent('templateElementAdd', { element: retoolData });
   };
 
+  const debouncedICPEBuildingChange = useCallback(
+    debounce((refId: string, field: string, value: string) => {
+      // Get latest building value from Retool state
+      const currentBuilding = building;
+      if (!currentBuilding?.icpeTypes) {
+        console.error('Building or icpeTypes is undefined');
+        return;
+      }
+
+      const updatedBuilding: Building = {
+        ...currentBuilding,
+        icpeTypes: currentBuilding.icpeTypes.map(icpe => 
+          icpe.refId === refId ? { ...icpe, [field]: value } : icpe
+        )
+      };
+
+      // First trigger the event so Retool can update its state
+      triggerEvent('buildingChange', { buildingId: currentBuilding._id, refId, field, value });
+      
+      // Then update our local state
+      setBuilding(updatedBuilding);
+    }, 1000),
+    [building, triggerEvent]
+  );
+
   const handleICPEBuildingChange = (refId: string, field: string, value: string) => {
-    const updatedBuilding: Building = {
-      ...building,
-      icpeTypes: building.icpeTypes.map(icpe => 
-        icpe.refId === refId ? { ...icpe, [field]: value } : icpe
-      )
-    };
-    setBuilding(updatedBuilding);
-    triggerEvent('buildingChange', { buildingId: building._id, refId, field, value });
+    if (!building?.icpeTypes) {
+      console.error('Building or icpeTypes is undefined in handleICPEBuildingChange');
+      return;
+    }
+    debouncedICPEBuildingChange(refId, field, value);
   };
 
   // Store raw template elements when they come from Retool

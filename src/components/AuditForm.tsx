@@ -33,13 +33,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const debouncedElementChange = useCallback(
-    debounce((elementId: string, field: string, value: any) => {
-      handleElementChange(elementId, field, value);
-    }, 1000),
-    []
-  );
-
   const handleAuditDataChange = (field: string, value: any) => {
     if (onAuditChange) {
       onAuditChange(field, value);
@@ -62,8 +55,15 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     }
   };
 
+  const debouncedAuditElementChange = useCallback(
+    debounce((elementId: string, field: string, value: any) => {
+      handleElementChange(elementId, field, value);
+    }, 1000),
+    []
+  );
+
   const handleAuditElementChange = (elementId: string, field: string, value: string) => {
-    debouncedElementChange(elementId, field, value);
+    debouncedAuditElementChange(elementId, field, value);
   };
 
   const handleElementDelete = (element: ExpandedElement) => {
@@ -88,12 +88,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       onTemplateElementAdd(generateTempId(), name, subCategoryId, categoryId, [position]);
     }
     setIsModalOpen(false);
-  };
-
-  const handleICPEBuildingChange = (refId: string, field: string, value: string) => {
-    if (onICPEBuildingChange) {
-      onICPEBuildingChange(refId, field, value);
-    }
   };
 
   const handleGeneratePDF = () => {
@@ -199,9 +193,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
-          onCapacityChange={(icpeId, value) =>
-            handleICPEBuildingChange(icpeId,'capacity', value)
-          }
+          onCapacityChange={(id, value) => onICPEBuildingChange(id, 'capacity', value)}
         />
 
         <div className="border-t-2 border-[rgb(0,106,60)]" />

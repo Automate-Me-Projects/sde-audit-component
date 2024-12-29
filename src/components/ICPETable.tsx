@@ -1,8 +1,44 @@
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import type { ICPETableComponentProps } from '../types';
 
-
 export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], onCapacityChange }) => {
+  const [inputValues, setInputValues] = useState<{[key: string]: string}>({});
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInputChange = useCallback((refId: string, value: string) => {
+    if (!refId) return;
+
+    // Update local state immediately
+    setInputValues(prev => ({
+      ...prev,
+      [`${refId}-capacity`]: value
+    }));
+
+    // Clear previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Set new timeout
+    timeoutRef.current = setTimeout(() => {
+      onCapacityChange(refId, value);
+    }, 1000);
+  }, [onCapacityChange]);
+
+  const getInputValue = useCallback((refId: string): string => {
+    const localValue = inputValues[`${refId}-capacity`];
+    return localValue !== undefined ? localValue : icpeTypes.find(icpe => icpe.refId === refId)?.capacity || '';
+  }, [icpeTypes, inputValues]);
+
+  if (!Array.isArray(icpeTypes)) {
+    return (
+      <div className="w-full">
+        <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ICPE</h2>
+        <p className="text-gray-500">No ICPE data available</p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ICPE</h2>
@@ -25,26 +61,28 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {icpeTypes?.map((icpe, index) => (
-              <tr key={index}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {icpe.rubrique}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  {icpe.description}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-900">
-                  <input
-                    type="text"
-                    value={icpe.capacity}
-                    onChange={(e) => onCapacityChange(icpe.refId, e.target.value)}
-                    className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {icpe.regime}
-                </td>
-              </tr>
+            {icpeTypes.map((icpe) => (
+              icpe?.refId ? (
+                <tr key={icpe.refId}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {icpe.rubrique}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {icpe.description}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    <input
+                      type="text"
+                      value={getInputValue(icpe.refId)}
+                      onChange={(e) => handleInputChange(icpe.refId, e.target.value)}
+                      className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {icpe.regime}
+                  </td>
+                </tr>
+              ) : null
             ))}
           </tbody>
         </table>
