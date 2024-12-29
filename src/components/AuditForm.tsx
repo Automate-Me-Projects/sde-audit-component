@@ -24,22 +24,14 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   regulatories,
   images,
   onAuditChange,
-  onElementChange,
-  onElementDuplicate,
-  onElementDelete,
   onElementAdd,
-  onTemplateElementAdd
+  onElementChange,
+  onElementDelete,
+  onElementDuplicate,
+  onTemplateElementAdd,
+  onICPEBuildingChange
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [changedElements, setChangedElements] = useState<Array<{ elementId: string; field: string; value: any }>>([]);
-  const [duplicatedElements, setDuplicatedElements] = useState<Array<any>>([]);
-  const [templateVersion, setTemplateVersion] = useState(audit.templateVersion);
-
-  useEffect(() => {
-    if (audit?.templateVersion) {
-      setTemplateVersion(audit.templateVersion);
-    }
-  }, [audit]);
 
   const debouncedElementChange = useCallback(
     debounce((elementId: string, field: string, value: any) => {
@@ -54,26 +46,24 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     }
   };
 
+  const handleAuditElementAdd = (
+    categoryId: string,
+    subCategoryId: string | null,
+    name: string,
+  ) => {
+    if (onElementAdd) {
+      onElementAdd(name, subCategoryId, categoryId);
+    }
+  };
+
   const handleElementChange = (elementId: string, field: string, value: any) => {
     if (onElementChange) {
       onElementChange(elementId, field, value);
     }
-
-    const newChangedElements = [...changedElements, { elementId, field, value }];
-    setChangedElements(newChangedElements);
   };
 
   const handleAuditElementChange = (elementId: string, field: string, value: string) => {
     debouncedElementChange(elementId, field, value);
-  };
-
-  const handleElementDuplicate = (element: any) => {
-    if (onElementDuplicate) {
-      onElementDuplicate(element);
-    }
-
-    const newDuplicatedElements = [...duplicatedElements, element];
-    setDuplicatedElements(newDuplicatedElements);
   };
 
   const handleElementDelete = (element: ExpandedElement) => {
@@ -82,14 +72,9 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     }
   };
 
-  const handleAuditElementAdd = (
-    categoryId: string,
-    subCategoryId: string | null,
-    name: string,
-  ) => {
-    // If we have an onElementAdd callback, call it with the element data
-    if (onElementAdd) {
-      onElementAdd(name, subCategoryId, categoryId);
+  const handleElementDuplicate = (element: ExpandedElement) => {
+    if (onElementDuplicate) {
+      onElementDuplicate(element);
     }
   };
 
@@ -105,12 +90,16 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     setIsModalOpen(false);
   };
 
+  const handleICPEBuildingChange = (refId: string, field: string, value: string) => {
+    if (onICPEBuildingChange) {
+      onICPEBuildingChange(refId, field, value);
+    }
+  };
+
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
     doc.save(`audit-${building.name}-${audit.year}.pdf`);
   };
-
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -210,8 +199,8 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
-          onCapacityChange={(index, value) =>
-            handleElementChange(`icpe-${index}`, 'capacity', value)
+          onCapacityChange={(icpeId, value) =>
+            handleICPEBuildingChange(icpeId,'capacity', value)
           }
         />
 
@@ -224,7 +213,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           templateElements={templateElements}
           auditElements={auditElements}
           regulatories={regulatories}
-          templateVersion={templateVersion}
+          templateVersion={audit.templateVersion}
           actors={audit.actors}
           onAuditElementChange={handleAuditElementChange}
           onElementDuplicate={handleElementDuplicate}
@@ -241,7 +230,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         sections={sections}
         categories={categories}
         subCategories={subCategories}
-        templateVersion={templateVersion}
+        templateVersion={audit.templateVersion}
         templateElements={templateElements}
       />
     </div>

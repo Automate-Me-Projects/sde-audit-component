@@ -1,10 +1,6 @@
 import React from 'react';
-import type { IcpeType } from '../types';
+import type { ICPETableComponentProps } from '../types';
 
-interface ICPETableComponentProps {
-  icpeTypes: IcpeType[];
-  onCapacityChange: (index: number, value: string) => void;
-}
 
 export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], onCapacityChange }) => {
   return (
@@ -41,7 +37,7 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
                   <input
                     type="text"
                     value={icpe.capacity}
-                    onChange={(e) => onCapacityChange(index, e.target.value)}
+                    onChange={(e) => onCapacityChange(icpe.refId, e.target.value)}
                     className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </td>

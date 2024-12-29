@@ -31,6 +31,7 @@ export interface Building {
 }
 
 export interface IcpeType {
+  refId: string,
   critere: string;
   description: string;
   regime: string;
@@ -124,10 +125,9 @@ export interface Image {
   updatedAt: string;
 }
 
-export interface ElementChange {
-  elementId: string;
-  field: string;
-  value: any;
+export interface ICPETableComponentProps {
+  icpeTypes: IcpeType[];
+  onCapacityChange: (id: string, value: string) => void;
 }
 
 export interface AuditFormProps {
@@ -143,7 +143,7 @@ export interface AuditFormProps {
   images: Image[];
   onAuditChange?: (field: string, value: any) => void;
   onElementChange?: (elementId: string, field: string, value: any) => void;
-  onElementDuplicate?: (element: TemplateElement) => void;
+  onElementDuplicate?: (element: ExpandedElement) => void;
   onElementDelete?: (element: ExpandedElement) => void;
   onElementAdd?: (
     name: string, 
@@ -157,6 +157,7 @@ export interface AuditFormProps {
     categoryId: string,
     positionByVersion: number[],
   ) => void;
+  onICPEBuildingChange?: (refId: string, field: string, value: string) => void;
 }
 
 export interface AddElementModalProps {
@@ -191,6 +192,7 @@ export interface AuditElementRowProps {
   onAuditElementChange: (elementId: string, field: string, value: string) => void;
   actors: string[];
 }
+
 export interface ElementDropdownProps {
   sections: Section[];
   categories: Category[];
