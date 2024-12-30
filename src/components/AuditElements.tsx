@@ -150,7 +150,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
           onChange={(e) => onAuditElementChange(elementId, 'actionOwner', e.target.value)}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Responsable</option>
+          <option value="">Acteur</option>
           {actors.map((actor) => (
             <option key={actor} value={actor}>
               {actor}
