@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import {
@@ -18,43 +18,63 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
   onAuditElementChange,
   actors,
 }) => {
-  const [textValues, setTextValues] = useState<{[key: string]: string}>({});
-  const [dropdownValues, setDropdownValues] = useState<{[key: string]: string}>({
-    status: expandedElement.auditElement?.status || '',
-    actionType: expandedElement.auditElement?.actionType || '',
-    actionOwner: expandedElement.auditElement?.actionOwner || ''
-  });
+  const [inputValues, setInputValues] = useState<{[key: string]: string}>({});
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const elementId = expandedElement.auditElement?._id || expandedElement._id;
+  const isFirstRender = useRef(true);
 
-  const handleTextChange = (elementId: string, field: string, value: string) => {
-    setTextValues(prev => ({
+  // Initialize input values on first render only
+  useEffect(() => {
+    if (isFirstRender.current) {
+      setInputValues({
+        [`${elementId}-constat`]: expandedElement.auditElement?.constat || '',
+        [`${elementId}-action`]: expandedElement.auditElement?.action || ''
+      });
+      isFirstRender.current = false;
+    }
+  }, [elementId, expandedElement.auditElement]);
+
+  const handleInputChange = useCallback((field: string, value: string) => {
+    const key = `${elementId}-${field}`;
+    
+    // Update local state immediately
+    setInputValues(prev => ({
       ...prev,
-      [`${elementId}-${field}`]: value
+      [key]: value
     }));
-    onAuditElementChange(elementId, field, value);
-  };
 
-  const handleDropdownChange = (field: string, value: string) => {
-    setDropdownValues(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    onAuditElementChange(
-      expandedElement.auditElement?._id || expandedElement._id,
-      field,
-      value
-    );
-  };
+    // Clear previous timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
 
-  const getTextValue = (elementId: string, field: 'constat' | 'action') => {
-    const localValue = textValues[`${elementId}-${field}`];
-    return localValue !== undefined ? localValue : expandedElement.auditElement?.[field] || '';
-  };
+    // Set new timeout
+    timeoutRef.current = setTimeout(() => {
+      onAuditElementChange(elementId, field, value);
+    }, 1000);
+  }, [elementId, onAuditElementChange]);
 
-  const getDropdownValue = (field: 'status' | 'actionType' | 'actionOwner') => {
-    return dropdownValues[field] !== undefined 
-      ? dropdownValues[field] 
-      : expandedElement.auditElement?.[field] || '';
-  };
+  const getInputValue = useCallback((field: 'constat' | 'action'): string => {
+    const key = `${elementId}-${field}`;
+    // Only use local state if it exists
+    if (inputValues[key] !== undefined) {
+      return inputValues[key];
+    }
+    // Safely access AuditElement fields
+    if (expandedElement.auditElement) {
+      return expandedElement.auditElement[field] || '';
+    }
+    return '';
+  }, [elementId, expandedElement.auditElement, inputValues]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div 
@@ -80,20 +100,16 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
       </div>
 
       <textarea
-        value={getTextValue(expandedElement.auditElement?._id || expandedElement._id, 'constat')}
-        onChange={(e) => handleTextChange(
-          expandedElement.auditElement?._id || expandedElement._id,
-          'constat',
-          e.target.value
-        )}
+        value={getInputValue('constat')}
+        onChange={(e) => handleInputChange('constat', e.target.value)}
         className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
         rows={3}
       />
 
       <div>
         <StatusDropdown
-          value={getDropdownValue('status')}
-          onChange={(value) => handleDropdownChange('status', value)}
+          value={expandedElement.auditElement?.status || ''}
+          onChange={(value) => onAuditElementChange(elementId, 'status', value)}
           options={[
             'Conforme',
             'Non conforme',
@@ -106,8 +122,8 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 
       <div>
         <select
-          value={getDropdownValue('actionType')}
-          onChange={(e) => handleDropdownChange('actionType', e.target.value)}
+          value={expandedElement.auditElement?.actionType || ''}
+          onChange={(e) => onAuditElementChange(elementId, 'actionType', e.target.value)}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Type d&apos;action</option>
@@ -122,23 +138,19 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
       </div>
 
       <textarea
-        value={getTextValue(expandedElement.auditElement?._id || expandedElement._id, 'action')}
-        onChange={(e) => handleTextChange(
-          expandedElement.auditElement?._id || expandedElement._id,
-          'action',
-          e.target.value
-        )}
+        value={getInputValue('action')}
+        onChange={(e) => handleInputChange('action', e.target.value)}
         className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
         rows={3}
       />
 
       <div>
         <select
-          value={getDropdownValue('actionOwner')}
-          onChange={(e) => handleDropdownChange('actionOwner', e.target.value)}
+          value={expandedElement.auditElement?.actionOwner || ''}
+          onChange={(e) => onAuditElementChange(elementId, 'actionOwner', e.target.value)}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Acteur</option>
+          <option value="">Responsable</option>
           {actors.map((actor) => (
             <option key={actor} value={actor}>
               {actor}

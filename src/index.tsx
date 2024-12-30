@@ -235,7 +235,7 @@ export const AuditFormComponent: FC = () => {
     if (auditElements && Array.isArray(auditElements)) {
       const updatedElements = auditElements.map(element => {
         // Check if this is the element we want to update
-        if (element._id === elementId || element.templateElementId === elementId) {
+        if (element._id === elementId) {
           // Create updated element with new value
           const updatedElement = { ...element, [field]: value };
           return updatedElement;

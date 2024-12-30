@@ -11,11 +11,11 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
 
   return (
     <div className="w-full">
-      <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">Annexes</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ANNEXES</h2>
+      <div className="flex flex-wrap">
         {sortedImages.map((image) => (
-          <div key={image.id} className="flex flex-col items-center">
-            <h3 className="text-lg font-medium mb-2">
+          <div key={image.id} className="w-1/6 flex flex-col items-center p-2">
+            <h3 className="text-sm font-medium mb-2 text-center truncate w-full">
               {getFileNameWithoutExtension(image.name)}
             </h3>
             <img

@@ -6,9 +6,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'custom-green': 'rgb(0, 106, 60)',
-        'custom-light-green': '#e8fbd3',
-        'custom-text-green': 'rgb(146, 208, 80)',
+        'sde-green': 'rgb(0, 106, 60)',
+        'sde-light-green': '#e8fbd3',
+        'sde-text-green': 'rgb(146, 208, 80)',
       },
     },
   },

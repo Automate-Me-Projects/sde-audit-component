@@ -1,6 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Plus } from 'lucide-react';
-import debounce from 'lodash/debounce';
+import React, { useState } from 'react';
+import { Plus, Eye, ArrowDownToLine } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { StatusDropdown } from './StatusDropdown';
 import { ElementDropdown } from './ElementDropdown';
@@ -39,6 +38,11 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     }
   };
 
+  const handleAuditElementChange = (elementId: string, field: string, value: string) => {
+    if (onElementChange) {
+      onElementChange(elementId, field, value);
+    }  };
+
   const handleAuditElementAdd = (
     categoryId: string,
     subCategoryId: string | null,
@@ -47,23 +51,6 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     if (onElementAdd) {
       onElementAdd(name, subCategoryId, categoryId);
     }
-  };
-
-  const handleElementChange = (elementId: string, field: string, value: any) => {
-    if (onElementChange) {
-      onElementChange(elementId, field, value);
-    }
-  };
-
-  const debouncedAuditElementChange = useCallback(
-    debounce((elementId: string, field: string, value: any) => {
-      handleElementChange(elementId, field, value);
-    }, 1000),
-    []
-  );
-
-  const handleAuditElementChange = (elementId: string, field: string, value: string) => {
-    debouncedAuditElementChange(elementId, field, value);
   };
 
   const handleElementDelete = (element: ExpandedElement) => {
@@ -93,6 +80,11 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   const handleGeneratePDF = () => {
     const doc = new jsPDF();
     doc.save(`audit-${building.name}-${audit.year}.pdf`);
+  };
+
+  const handleVisualizePDF = () => {
+    const doc = new jsPDF();
+    doc.output('dataurlnewwindow');
   };
 
   return (
@@ -134,10 +126,18 @@ export const AuditForm: React.FC<AuditFormProps> = ({
             <Plus className="h-6 w-6" />
           </button>
           <button
-            onClick={handleGeneratePDF}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            onClick={handleVisualizePDF}
+            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 flex items-center gap-3"
           >
-            Générer PDF
+            <Eye className="h-5 w-5" />
+            PDF
+          </button>
+          <button
+            onClick={handleGeneratePDF}
+            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 flex items-center gap-3"
+          >
+            <ArrowDownToLine className="h-5 w-5" />
+            PDF
           </button>
         </div>
       </div>
