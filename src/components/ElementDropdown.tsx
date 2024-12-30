@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Listbox, Transition } from '@headlessui/react';
 import { ChevronsUpDownIcon } from 'lucide-react';
 import { ElementDropdownProps, TemplateElement } from '../types';
 import { getHierarchyPath, isTemplateElementPresent, sortTemplateElements } from '../utils';
 
-export const ElementDropdown: React.FC<ElementDropdownProps> = ({
+const ElementDropdownComponent = React.memo(({
   sections,
   categories,
   subCategories,
@@ -12,11 +12,11 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
   allTemplateElements,
   templateVersion,
   onSelect,
-}) => {
+}: ElementDropdownProps) => {
   const [selectedElement, setSelectedElement] = React.useState<TemplateElement | null>(null);
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const handleSelect = (element: TemplateElement | null) => {
+  const handleSelect = useCallback((element: TemplateElement | null) => {
     if (!element) return;
 
     setSelectedElement(element);
@@ -39,16 +39,34 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
     requestAnimationFrame(() => {
       setSelectedElement(null);
     });
-  };
+  }, [onSelect, templateVersion]);
 
   // Reset selection when template elements change
   React.useEffect(() => {
     setSelectedElement(null);
   }, [templateElements]);
 
-  const sortedTemplateElements = React.useMemo(() => {
+  const sortedTemplateElements = useMemo(() => {
     return sortTemplateElements(allTemplateElements, categories, subCategories, sections, templateVersion);
   }, [allTemplateElements, categories, subCategories, sections, templateVersion]);
+
+  const toggleOpen = useCallback(() => setIsOpen(prev => !prev), []);
+
+  const renderOption = useCallback(({ active, selected }: { active: boolean, selected: boolean }, element: TemplateElement) => (
+    <>
+      <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+        {isTemplateElementPresent(element, templateElements) && (
+          <span className="text-green-600 mr-2 text-sm">✓ </span>
+        )}
+        {getHierarchyPath(element, categories, subCategories, sections, templateVersion)}
+      </span>
+      {selected && (
+        <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-amber-600">
+          ✓
+        </span>
+      )}
+    </>
+  ), [categories, subCategories, sections, templateElements, templateVersion]);
 
   return (
     <div className="relative mt-1">
@@ -57,7 +75,7 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
           <>
             <Listbox.Button 
               className="relative w-full cursor-pointer rounded-lg bg-white py-2 pl-3 pr-10 text-left border border-gray-300 focus:outline-none focus-visible:border-indigo-500 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-orange-300 sm:text-sm"
-              onClick={() => setIsOpen(!isOpen)}
+              onClick={toggleOpen}
             >
               <span className="block truncate">
                 {selectedElement
@@ -89,21 +107,7 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
                       }`
                     }
                   >
-                    {({ selected }) => (
-                      <>
-                        <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
-                          {isTemplateElementPresent(element, templateElements) && (
-                            <span className="text-green-600 mr-2 text-sm">✓ </span>
-                          )}
-                          {getHierarchyPath(element, categories, subCategories, sections, templateVersion)}
-                        </span>
-                        {selected && (
-                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-amber-600">
-                            ✓
-                          </span>
-                        )}
-                      </>
-                    )}
+                    {({ active, selected }) => renderOption({ active, selected }, element)}
                   </Listbox.Option>
                 ))}
               </Listbox.Options>
@@ -113,4 +117,8 @@ export const ElementDropdown: React.FC<ElementDropdownProps> = ({
       </Listbox>
     </div>
   );
-};
+});
+
+ElementDropdownComponent.displayName = 'ElementDropdown';
+
+export const ElementDropdown = ElementDropdownComponent;

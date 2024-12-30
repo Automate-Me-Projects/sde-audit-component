@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image } from '../types';
 import { compareImageNames, getFileNameWithoutExtension } from '../utils';
 
@@ -6,8 +6,11 @@ interface ImageGalleryProps {
   images: Image[];
 }
 
-export const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
-  const sortedImages = [...images].sort((a, b) => compareImageNames(a.name, b.name));
+const ImageGalleryComponent = React.memo(({ images }: ImageGalleryProps) => {
+  const sortedImages = useMemo(() => 
+    [...images].sort((a, b) => compareImageNames(a.name, b.name)),
+    [images]
+  );
 
   return (
     <div className="w-full">
@@ -22,10 +25,15 @@ export const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
               src={image.url}
               alt={image.name}
               className="w-full h-auto rounded-lg shadow-md"
+              loading="lazy"
             />
           </div>
         ))}
       </div>
     </div>
   );
-};
+});
+
+ImageGalleryComponent.displayName = 'ImageGallery';
+
+export const ImageGallery = ImageGalleryComponent;

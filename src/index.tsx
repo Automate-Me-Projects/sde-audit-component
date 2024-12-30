@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
@@ -18,6 +18,7 @@ import './output.css';
 import { generateTempId, createTimestamp, debounce } from './utils';
 
 export const AuditFormComponent: FC = () => {
+  // Retool state hooks
   const [audit, setAudit] = Retool.useStateObject({
     name: 'audit',
     description: 'The audit object',
@@ -109,7 +110,7 @@ export const AuditFormComponent: FC = () => {
   const onTemplateElementAdd = Retool.useEventCallback({ name: 'templateElementAdd' });
   const onBuildingChange = Retool.useEventCallback({ name: 'buildingChange' });
 
-  const triggerEvent = (eventName: string, data: any) => {
+  const triggerEvent = useCallback((eventName: string, data: any) => {
     console.log('🎯 Triggering event:', {
       eventName,
       data,
@@ -164,16 +165,21 @@ export const AuditFormComponent: FC = () => {
       instance: [],
       data
     });
-  };
+  }, [
+    setChangedAudit, onAuditChange,
+    setNewAuditElement, onAuditElementAdd,
+    setChangedAuditElement, onAuditElementChange,
+    setDeletedAuditElement, onAuditElementDelete,
+    setNewTemplateElement, onTemplateElementAdd,
+    setChangedBuilding, onBuildingChange
+  ]);
 
-  const handleAuditChange = (field: string, value: any) => {
+  const handleAuditChange = useCallback((field: string, value: any) => {
     setAudit({...audit, [field]: value });
-
     triggerEvent('auditChange', { auditId: audit.id, field, value });
-  };
+  }, [audit, setAudit, triggerEvent]);
 
-  const handleAuditElementAdd = (name: string, subCategoryId: string | null, categoryId: string) => {
-    // Find the selected template element from allTemplateElements
+  const handleAuditElementAdd = useCallback((name: string, subCategoryId: string | null, categoryId: string) => {
     const selectedElement = allTemplateElements.find(element => 
       element.categoryId === categoryId && 
       (element.subCategoryId ? element.subCategoryId === subCategoryId : true) && 
@@ -185,13 +191,9 @@ export const AuditFormComponent: FC = () => {
       return;
     }
 
-    // Check if the template element already exists in templateElements
     const elementExists = templateElements.some(element => element._id === selectedElement._id);
-
-    // Create timestamp for both elements
     const timestamp = createTimestamp();
 
-    // Create new audit element for local state
     const auditElement = {
       _id: generateTempId(),
       auditId: audit.id,
@@ -207,72 +209,59 @@ export const AuditFormComponent: FC = () => {
       updatedAt: timestamp
     };
 
-    // Update local states
     if (!elementExists) {
-      // If element doesn't exist, add it to templateElements
       const newTemplateElements = [...templateElements, selectedElement];
       setTemplateElements(newTemplateElements);
     }
 
-    // Always add the new audit element
     const newAuditElements = [...auditElements, auditElement];
     setAuditElements(newAuditElements);
 
-    // Remove _id, createdAt, and updatedAt from auditElement for Retool
     const { _id, createdAt, updatedAt, ...retoolAuditElement } = auditElement;
-
-    // Trigger auditElementAdd event with simplified element
     triggerEvent('auditElementAdd', { element: retoolAuditElement });
-  };
+  }, [
+    allTemplateElements,
+    templateElements,
+    auditElements,
+    audit.id,
+    setTemplateElements,
+    setAuditElements,
+    triggerEvent
+  ]);
 
-  const handleAuditElementChange = (elementId: string, field: string, value: any) => {
+  const handleAuditElementChange = useCallback((elementId: string, field: string, value: any) => {
+    triggerEvent('auditElementChange', { elementId, field, value });
 
-    // First trigger the Retool event with the change data
-    const changeData = { elementId, field, value };
-    triggerEvent('auditElementChange', changeData);
-
-    // Then update local state if auditElements exists
     if (auditElements && Array.isArray(auditElements)) {
-      const updatedElements = auditElements.map(element => {
-        // Check if this is the element we want to update
-        if (element._id === elementId) {
-          // Create updated element with new value
-          const updatedElement = { ...element, [field]: value };
-          return updatedElement;
-        }
-        return element;
-      });
-      
+      const updatedElements = auditElements.map(element => 
+        element._id === elementId ? { ...element, [field]: value } : element
+      );
       setAuditElements(updatedElements);
     }
-  };
+  }, [auditElements, setAuditElements, triggerEvent]);
 
-  const handleAuditElementDelete = (expandedElement: ExpandedElement) => {
-
-    // First trigger the Retool event
+  const handleAuditElementDelete = useCallback((expandedElement: ExpandedElement) => {
     triggerEvent('auditElementDelete', { expandedElement });
 
-    // Update auditElements state
     const newAuditElements = auditElements.filter(
       auditElement => auditElement._id !== expandedElement.auditElement?._id
     );
-    setAuditElements(newAuditElements);
 
-    // Check if there are any remaining audit elements for this template
     const hasRemainingAuditElements = newAuditElements.some(
       auditElement => auditElement.templateElementId === expandedElement._id
     );
 
-    // If no audit elements remain, remove the template element
     if (!hasRemainingAuditElements) {
       const newTemplateElements = templateElements.filter(
         template => template._id !== expandedElement._id
       );
       setTemplateElements(newTemplateElements);
     }
-  };
 
-  const handleElementDuplicate = (element: ExpandedElement) => {
+    setAuditElements(newAuditElements);
+  }, [auditElements, templateElements, setAuditElements, setTemplateElements, triggerEvent]);
+
+  const handleElementDuplicate = useCallback((element: ExpandedElement) => {
     if (!element.auditElement) return;
   
     const timestamp = createTimestamp();
@@ -286,22 +275,18 @@ export const AuditFormComponent: FC = () => {
     };
 
     triggerEvent('auditElementAdd', { element: retoolAuditElement });
-  
     const newAuditElements = [...auditElements, newAuditElement];
     setAuditElements(newAuditElements);
-  };
+  }, [auditElements, setAuditElements, triggerEvent]);
 
-  const handleTemplateElementAdd = (_id: string, name: string, subCategoryId: string | null, categoryId: string, position: number[]) => {
-    // Validate required fields
+  const handleTemplateElementAdd = useCallback((_id: string, name: string, subCategoryId: string | null, categoryId: string, position: number[]) => {
     if (!categoryId) {
       console.error('🚨 Index handleTemplateElementAdd - Missing categoryId:');
       return;
     }
 
-    // Create timestamp for both elements
     const timestamp = createTimestamp();
 
-    // Create the template element with the correct structure
     const templateElement = {
       _id,
       name,
@@ -314,7 +299,6 @@ export const AuditFormComponent: FC = () => {
       updatedAt: timestamp
     };
 
-    // Create the corresponding audit element
     const auditElement = {
       _id: generateTempId(),
       auditId: audit.id,
@@ -330,15 +314,12 @@ export const AuditFormComponent: FC = () => {
       updatedAt: timestamp
     };
 
-    // Update local state first
     const newTemplateElements = [...templateElements, templateElement];
     const newAuditElements = [...auditElements, auditElement];
     
-    // Update state and force re-render
     setTemplateElements(newTemplateElements);
     setAuditElements(newAuditElements);
 
-    // Format data for Retool
     const retoolData = {
       templateElement: {
         categoryId: templateElement.categoryId,
@@ -359,13 +340,11 @@ export const AuditFormComponent: FC = () => {
       }
     };
 
-    // Then trigger Retool event with the correct structure
     triggerEvent('templateElementAdd', { element: retoolData });
-  };
+  }, [audit.id, audit.templateVersion, templateElements, auditElements, setTemplateElements, setAuditElements, triggerEvent]);
 
   const debouncedICPEBuildingChange = useCallback(
     debounce((refId: string, field: string, value: string) => {
-      // Get latest building value from Retool state
       const currentBuilding = building;
       if (!currentBuilding?.icpeTypes) {
         console.error('Building or icpeTypes is undefined');
@@ -379,61 +358,65 @@ export const AuditFormComponent: FC = () => {
         )
       };
 
-      // First trigger the event so Retool can update its state
       triggerEvent('buildingChange', { buildingId: currentBuilding._id, refId, field, value });
-      
-      // Then update our local state
       setBuilding(updatedBuilding);
     }, 1000),
     [building, triggerEvent]
   );
 
-  const handleICPEBuildingChange = (refId: string, field: string, value: string) => {
+  const handleICPEBuildingChange = useCallback((refId: string, field: string, value: string) => {
     if (!building?.icpeTypes) {
       console.error('Building or icpeTypes is undefined in handleICPEBuildingChange');
       return;
     }
     debouncedICPEBuildingChange(refId, field, value);
-  };
+  }, [building?.icpeTypes, debouncedICPEBuildingChange]);
 
   // Store raw template elements when they come from Retool
   useEffect(() => {
     if (allTemplateElements && allTemplateElements !== rawAllTemplateElements) {
       setRawAllTemplateElements(allTemplateElements);
     }
-  }, [allTemplateElements]);
+  }, [allTemplateElements, rawAllTemplateElements]);
 
-  // Filter allTemplateElements based on audit.templateVersion
-  useEffect(() => {
-    if (rawAllTemplateElements && audit?.templateVersion) {
-      const filteredElements = rawAllTemplateElements.filter(element => 
-        element.templateVersion?.includes(audit.templateVersion)
-      );
-      setAllTemplateElements(filteredElements);
-    }
-  }, [rawAllTemplateElements, audit?.templateVersion]);
+  // Memoize the props passed to AuditForm
+  const auditFormProps = useMemo(() => ({
+    audit,
+    building,
+    sections,
+    categories,
+    subCategories,
+    templateElements,
+    allTemplateElements,
+    auditElements,
+    regulatories,
+    images,
+    onAuditChange: handleAuditChange,
+    onElementAdd: handleAuditElementAdd,
+    onElementChange: handleAuditElementChange,
+    onElementDelete: handleAuditElementDelete,
+    onElementDuplicate: handleElementDuplicate,
+    onTemplateElementAdd: handleTemplateElementAdd,
+    onICPEBuildingChange: handleICPEBuildingChange
+  }), [
+    audit,
+    building,
+    sections,
+    categories,
+    subCategories,
+    templateElements,
+    allTemplateElements,
+    auditElements,
+    regulatories,
+    images,
+    handleAuditChange,
+    handleAuditElementAdd,
+    handleAuditElementChange,
+    handleAuditElementDelete,
+    handleElementDuplicate,
+    handleTemplateElementAdd,
+    handleICPEBuildingChange
+  ]);
 
-  return (
-    <div className="retool-component">
-      <AuditForm
-        audit={audit}
-        building={building}
-        sections={sections}
-        categories={categories}
-        subCategories={subCategories}
-        templateElements={templateElements}
-        allTemplateElements={allTemplateElements}
-        auditElements={auditElements}
-        regulatories={regulatories}
-        images={images}
-        onAuditChange={handleAuditChange}
-        onElementAdd={handleAuditElementAdd}
-        onElementChange={handleAuditElementChange}
-        onElementDelete={handleAuditElementDelete}
-        onElementDuplicate={handleElementDuplicate}
-        onTemplateElementAdd={handleTemplateElementAdd}
-        onICPEBuildingChange={handleICPEBuildingChange}
-      />
-    </div>
-  );
+  return <AuditForm {...auditFormProps} />;
 };

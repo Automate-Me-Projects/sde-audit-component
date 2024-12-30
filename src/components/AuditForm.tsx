@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, Eye, ArrowDownToLine } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { StatusDropdown } from './StatusDropdown';
@@ -11,7 +11,7 @@ import { ImageGallery } from './ImageGallery';
 import { generateTempId, formatDate } from '../utils';
 import type { AuditFormProps, ExpandedElement } from '../types';
 
-export const AuditForm: React.FC<AuditFormProps> = ({
+const AuditFormComponent = React.memo(({
   audit,
   building,
   sections,
@@ -29,21 +29,22 @@ export const AuditForm: React.FC<AuditFormProps> = ({
   onElementDuplicate,
   onTemplateElementAdd,
   onICPEBuildingChange
-}) => {
+}: AuditFormProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleAuditDataChange = (field: string, value: any) => {
+  const handleAuditDataChange = useCallback((field: string, value: any) => {
     if (onAuditChange) {
       onAuditChange(field, value);
     }
-  };
+  }, [onAuditChange]);
 
-  const handleAuditElementChange = (elementId: string, field: string, value: string) => {
+  const handleAuditElementChange = useCallback((elementId: string, field: string, value: string) => {
     if (onElementChange) {
       onElementChange(elementId, field, value);
-    }  };
+    }
+  }, [onElementChange]);
 
-  const handleAuditElementAdd = (
+  const handleAuditElementAdd = useCallback((
     categoryId: string,
     subCategoryId: string | null,
     name: string,
@@ -51,45 +52,94 @@ export const AuditForm: React.FC<AuditFormProps> = ({
     if (onElementAdd) {
       onElementAdd(name, subCategoryId, categoryId);
     }
-  };
+  }, [onElementAdd]);
 
-  const handleElementDelete = (element: ExpandedElement) => {
+  const handleElementDelete = useCallback((element: ExpandedElement) => {
     if (onElementDelete) {
       onElementDelete(element);
     }
-  };
+  }, [onElementDelete]);
 
-  const handleElementDuplicate = (element: ExpandedElement) => {
+  const handleElementDuplicate = useCallback((element: ExpandedElement) => {
     if (onElementDuplicate) {
       onElementDuplicate(element);
     }
-  };
+  }, [onElementDuplicate]);
 
-  const handleNewElementAdd = (
+  const handleNewElementAdd = useCallback((
     categoryId: string,
     subCategoryId: string | null,
     name: string,
-    position: number) => {
-
+    position: number
+  ) => {
     if (onTemplateElementAdd) {
       onTemplateElementAdd(generateTempId(), name, subCategoryId, categoryId, [position]);
     }
     setIsModalOpen(false);
-  };
+  }, [onTemplateElementAdd]);
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = useCallback(() => {
     const doc = new jsPDF();
     doc.save(`audit-${building.name}-${audit.year}.pdf`);
-  };
+  }, [building.name, audit.year]);
 
-  const handleVisualizePDF = () => {
+  const handleVisualizePDF = useCallback(() => {
     const doc = new jsPDF();
     doc.output('dataurlnewwindow');
-  };
+  }, []);
+
+  // Memoize complex data structures
+  const statusOptions = useMemo(() => [
+    'En cours de rédaction',
+    'Fini',
+    'En relecture',
+    'En attente de documents',
+    'Envoyé'
+  ], []);
+
+  const infoTableRows = useMemo(() => [
+    { label: 'Date', value: formatDate(audit?.visitDate), editable: false },
+    { label: 'Bâtiment', value: building?.name ?? '' },
+    { label: 'Portefeuille', value: building?.portfolio ?? '' },
+    { label: 'Adresse du site', value: building?.address ?? '' }
+  ], [audit?.visitDate, building?.name, building?.portfolio, building?.address]);
+
+  const arretePrefectoralRows = useMemo(() => [
+    { label: "Nom du titulaire de l'arrêté préfectoral :", value: building?.titularArreteePrefectoral ?? '' },
+    { label: 'Adresse du site :', value: building?.address ?? '' },
+    { label: "Date de l'arrêté préfectoral en vigueur et arrêté précédents :", value: building?.dateAPAPC ?? '' },
+    { label: "Changement d'exploitant connu :", value: building?.changementExploitant ?? '' }
+  ], [building?.titularArreteePrefectoral, building?.address, building?.dateAPAPC, building?.changementExploitant]);
+
+  const exploitationRows = useMemo(() => [
+    { label: 'Propriétaire :', value: building?.owner ?? '' },
+    { label: 'Locataire du bâtiment :', value: building?.tenant ?? '' },
+    { label: 'Gestionnaire technique :', value: building?.technicalManager ?? '' },
+    { label: 'Date de la dernière inspection :', value: building?.dateDerniereInspection ?? '' },
+    { label: 'Contact sur site :', value: building?.siteContact ?? '' }
+  ], [building?.owner, building?.tenant, building?.technicalManager, building?.dateDerniereInspection, building?.siteContact]);
+
+  const auditRows = useMemo(() => [
+    { 
+      label: 'Date de visite :', 
+      value: audit?.visitDate ?? '', 
+      editable: true, 
+      onChange: (value: string) => handleAuditDataChange('visitDate', value) 
+    },
+    { 
+      label: "Date d'émission du rapport :", 
+      value: audit?.reportDate ?? '', 
+      editable: true, 
+      onChange: (value: string) => handleAuditDataChange('reportDate', value) 
+    },
+    { 
+      label: 'Rédacteur :', 
+      value: audit?.editor ?? '' 
+    }
+  ], [audit?.visitDate, audit?.reportDate, audit?.editor, handleAuditDataChange]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] p-4 z-50 shadow-md">
         <h1 className="text-[rgb(146,208,80)] text-2xl font-bold mb-4">
           {building.name} - {audit.year}
@@ -99,13 +149,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
             <StatusDropdown
               value={audit?.status || ''}
               onChange={(value) => handleAuditDataChange('status', value)}
-              options={[
-                'En cours de rédaction',
-                'Fini',
-                'En relecture',
-                'En attente de documents',
-                'Envoyé'
-              ]}
+              options={statusOptions}
             />
           </div>
           <div className="flex-1">
@@ -120,7 +164,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
             />
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={useCallback(() => setIsModalOpen(true), [])}
             className="p-2 text-green-600 hover:text-green-700"
           >
             <Plus className="h-6 w-6" />
@@ -142,36 +186,17 @@ export const AuditForm: React.FC<AuditFormProps> = ({
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="pt-32 px-6 pb-8 w-full space-y-8">
-        <InfoTable
-          rows={[
-            { label: 'Date', value: formatDate(audit?.visitDate), editable: false },
-            { label: 'Bâtiment', value: building?.name ?? '' },
-            { label: 'Portefeuille', value: building?.portfolio ?? '' },
-            { label: 'Adresse du site', value: building?.address ?? '' }
-          ]}
-        />
+        <InfoTable rows={infoTableRows} />
 
         <InfoTable
           title="Informations relatives à l'arrêté préfectoral"
-          rows={[
-            { label: "Nom du titulaire de l'arrêté préfectoral :", value: building?.titularArreteePrefectoral ?? '' },
-            { label: 'Adresse du site :', value: building?.address ?? '' },
-            { label: "Date de l'arrêté préfectoral en vigueur et arrêté précédents :", value: building?.dateAPAPC ?? '' },
-            { label: "Changement d'exploitant connu :", value: building?.changementExploitant ?? '' }
-          ]}
+          rows={arretePrefectoralRows}
         />
 
         <InfoTable
           title="Informations relatives à l'exploitation"
-          rows={[
-            { label: 'Propriétaire :', value: building?.owner ?? '' },
-            { label: 'Locataire du bâtiment :', value: building?.tenant ?? '' },
-            { label: 'Gestionnaire technique :', value: building?.technicalManager ?? '' },
-            { label: 'Date de la dernière inspection :', value: building?.dateDerniereInspection ?? '' },
-            { label: 'Contact sur site :', value: building?.siteContact ?? '' }
-          ]}
+          rows={exploitationRows}
         />
 
         <div className="bg-white p-4 rounded-lg shadow">
@@ -181,23 +206,17 @@ export const AuditForm: React.FC<AuditFormProps> = ({
           <div className="whitespace-pre-line">{building?.icpeRegulations ?? ''}</div>
         </div>
 
-        <InfoTable
-          rows={[
-            { label: 'Date de visite :', value: audit?.visitDate ?? '', editable: true, onChange: (value) => handleAuditDataChange('visitDate', value) },
-            { label: "Date d'émission du rapport :", value: audit?.reportDate ?? '', editable: true, onChange: (value) => handleAuditDataChange('reportDate', value) },
-            { label: 'Rédacteur :', value: audit?.editor ?? '' }
-          ]}
-        />
+        <InfoTable rows={auditRows} />
 
         <div className="border-t-2 border-[rgb(0,106,60)]" />
 
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
-          onCapacityChange={(id, value) => {
+          onCapacityChange={useCallback((id: string, value: string) => {
             if (onICPEBuildingChange) {
               onICPEBuildingChange(id, 'capacity', value);
             }
-          }}
+          }, [onICPEBuildingChange])}
         />
 
         <div className="border-t-2 border-[rgb(0,106,60)]" />
@@ -221,7 +240,7 @@ export const AuditForm: React.FC<AuditFormProps> = ({
 
       <AddElementModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={useCallback(() => setIsModalOpen(false), [])}
         onAdd={handleNewElementAdd}
         sections={sections}
         categories={categories}
@@ -231,4 +250,8 @@ export const AuditForm: React.FC<AuditFormProps> = ({
       />
     </div>
   );
-};
+});
+
+AuditFormComponent.displayName = 'AuditForm';
+
+export const AuditForm = AuditFormComponent;
