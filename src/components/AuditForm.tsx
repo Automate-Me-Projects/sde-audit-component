@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Plus, Eye, ArrowDownToLine } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { StatusDropdown } from './StatusDropdown';
 import { ElementDropdown } from './ElementDropdown';
 import { AddElementModal } from './AddElementModal';
@@ -9,6 +8,7 @@ import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import { ImageGallery } from './ImageGallery';
 import { generateTempId, formatDate } from '../utils';
+import { generateAuditPDF } from '../utils/pdfGenerator';
 import type { AuditFormProps, ExpandedElement } from '../types';
 
 const AuditFormComponent = React.memo(({
@@ -37,56 +37,6 @@ const AuditFormComponent = React.memo(({
       onAuditChange(field, value);
     }
   }, [onAuditChange]);
-
-  const handleAuditElementChange = useCallback((elementId: string, field: string, value: string) => {
-    if (onElementChange) {
-      onElementChange(elementId, field, value);
-    }
-  }, [onElementChange]);
-
-  const handleAuditElementAdd = useCallback((
-    categoryId: string,
-    subCategoryId: string | null,
-    name: string,
-  ) => {
-    if (onElementAdd) {
-      onElementAdd(name, subCategoryId, categoryId);
-    }
-  }, [onElementAdd]);
-
-  const handleElementDelete = useCallback((element: ExpandedElement) => {
-    if (onElementDelete) {
-      onElementDelete(element);
-    }
-  }, [onElementDelete]);
-
-  const handleElementDuplicate = useCallback((element: ExpandedElement) => {
-    if (onElementDuplicate) {
-      onElementDuplicate(element);
-    }
-  }, [onElementDuplicate]);
-
-  const handleNewElementAdd = useCallback((
-    categoryId: string,
-    subCategoryId: string | null,
-    name: string,
-    position: number
-  ) => {
-    if (onTemplateElementAdd) {
-      onTemplateElementAdd(generateTempId(), name, subCategoryId, categoryId, [position]);
-    }
-    setIsModalOpen(false);
-  }, [onTemplateElementAdd]);
-
-  const handleGeneratePDF = useCallback(() => {
-    const doc = new jsPDF();
-    doc.save(`audit-${building.name}-${audit.year}.pdf`);
-  }, [building.name, audit.year]);
-
-  const handleVisualizePDF = useCallback(() => {
-    const doc = new jsPDF();
-    doc.output('dataurlnewwindow');
-  }, []);
 
   // Memoize complex data structures
   const statusOptions = useMemo(() => [
@@ -137,6 +87,84 @@ const AuditFormComponent = React.memo(({
       value: audit?.editor ?? '' 
     }
   ], [audit?.visitDate, audit?.reportDate, audit?.editor, handleAuditDataChange]);
+
+  const handleAuditElementChange = useCallback((elementId: string, field: string, value: string) => {
+    if (onElementChange) {
+      onElementChange(elementId, field, value);
+    }
+  }, [onElementChange]);
+
+  const handleAuditElementAdd = useCallback((
+    categoryId: string,
+    subCategoryId: string | null,
+    name: string,
+  ) => {
+    if (onElementAdd) {
+      onElementAdd(name, subCategoryId, categoryId);
+    }
+  }, [onElementAdd]);
+
+  const handleElementDelete = useCallback((element: ExpandedElement) => {
+    if (onElementDelete) {
+      onElementDelete(element);
+    }
+  }, [onElementDelete]);
+
+  const handleElementDuplicate = useCallback((element: ExpandedElement) => {
+    if (onElementDuplicate) {
+      onElementDuplicate(element);
+    }
+  }, [onElementDuplicate]);
+
+  const handleNewElementAdd = useCallback((
+    categoryId: string,
+    subCategoryId: string | null,
+    name: string,
+    position: number
+  ) => {
+    if (onTemplateElementAdd) {
+      onTemplateElementAdd(generateTempId(), name, subCategoryId, categoryId, [position]);
+    }
+    setIsModalOpen(false);
+  }, [onTemplateElementAdd]);
+
+  const handleGeneratePDF = useCallback(() => {
+    const doc = generateAuditPDF({
+      building,
+      audit,
+      sections,
+      categories,
+      subCategories,
+      regulatories,
+      infoTableRows,
+      arretePrefectoralRows,
+      exploitationRows,
+      auditRows,
+      templateElements,
+      auditElements,
+      images
+    });
+    doc.save(`audit-${building.name}-${audit.year}.pdf`);
+  }, [building, audit, sections, categories, subCategories,infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+
+  const handleVisualizePDF = useCallback(() => {
+    const doc = generateAuditPDF({
+      building,
+      audit,
+      sections,
+      categories,
+      subCategories,
+      regulatories,
+      infoTableRows,
+      arretePrefectoralRows,
+      exploitationRows,
+      auditRows,
+      templateElements,
+      auditElements,
+      images
+    });
+    doc.output('dataurlnewwindow');
+  }, [building, audit, sections, categories, subCategories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
 
   return (
     <div className="min-h-screen bg-gray-50">

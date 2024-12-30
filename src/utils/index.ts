@@ -1,4 +1,4 @@
-import { Section, Category, SubCategory, TemplateElement, AuditElement, ExpandedElement } from '../types';
+import { Section, Category, SubCategory, TemplateElement, ExpandedElement } from '../types';
 
 export const sortByPosition = (items: any[], templateVersion: number): any[] => {
   return [...items].sort((a, b) => {
