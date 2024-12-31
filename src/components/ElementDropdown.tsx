@@ -3,14 +3,15 @@ import { Listbox, Transition } from '@headlessui/react';
 import { ChevronsUpDownIcon } from 'lucide-react';
 import { ElementDropdownProps, TemplateElement } from '../types';
 import { getHierarchyPath, isTemplateElementPresent, sortTemplateElements } from '../utils';
+import PropTypes from 'prop-types';
 
-const ElementDropdownComponent = React.memo(({
+const UnmemoizedElementDropdown = ({
   sections,
   categories,
   subCategories,
   templateElements,
   allTemplateElements,
-  templateVersion,
+  templateVersion = 2,
   onSelect,
 }: ElementDropdownProps) => {
   const [selectedElement, setSelectedElement] = React.useState<TemplateElement | null>(null);
@@ -117,8 +118,19 @@ const ElementDropdownComponent = React.memo(({
       </Listbox>
     </div>
   );
-});
+};
 
+UnmemoizedElementDropdown.propTypes = {
+  sections: PropTypes.array.isRequired,
+  categories: PropTypes.array.isRequired,
+  subCategories: PropTypes.array.isRequired,
+  templateElements: PropTypes.array.isRequired,
+  allTemplateElements: PropTypes.array.isRequired,
+  templateVersion: PropTypes.number,
+  onSelect: PropTypes.func.isRequired,
+};
+
+const ElementDropdownComponent = React.memo(UnmemoizedElementDropdown);
 ElementDropdownComponent.displayName = 'ElementDropdown';
 
 export const ElementDropdown = ElementDropdownComponent;

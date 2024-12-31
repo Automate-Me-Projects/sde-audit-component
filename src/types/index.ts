@@ -199,6 +199,6 @@ export interface ElementDropdownProps {
   subCategories: SubCategory[];
   templateElements: TemplateElement[];
   allTemplateElements: TemplateElement[];
-  templateVersion: number;
+  templateVersion?: number;
   onSelect: (categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }

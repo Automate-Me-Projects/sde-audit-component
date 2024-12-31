@@ -32,7 +32,7 @@ const AuditFormComponent = React.memo(({
 }: AuditFormProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleAuditDataChange = useCallback((field: string, value: any) => {
+  const handleAuditDataChange = useCallback((field: string, value: string) => {
     if (onAuditChange) {
       onAuditChange(field, value);
     }
@@ -128,43 +128,54 @@ const AuditFormComponent = React.memo(({
     setIsModalOpen(false);
   }, [onTemplateElementAdd]);
 
-  const handleGeneratePDF = useCallback(() => {
-    const doc = generateAuditPDF({
-      building,
-      audit,
-      sections,
-      categories,
-      subCategories,
-      regulatories,
-      infoTableRows,
-      arretePrefectoralRows,
-      exploitationRows,
-      auditRows,
-      templateElements,
-      auditElements,
-      images
-    });
-    doc.save(`audit-${building.name}-${audit.year}.pdf`);
-  }, [building, audit, sections, categories, subCategories,infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+  const handleGeneratePDF = useCallback(async () => {
+    try {
+      const doc = await generateAuditPDF({
+        building,
+        audit,
+        sections,
+        categories,
+        subCategories,
+        regulatories,
+        infoTableRows,
+        arretePrefectoralRows,
+        exploitationRows,
+        auditRows,
+        templateElements,
+        auditElements,
+        images
+      });
+      doc.save(`audit-${building.name}-${audit.year}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Add appropriate error handling here
+    }
+  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
 
-  const handleVisualizePDF = useCallback(() => {
-    const doc = generateAuditPDF({
-      building,
-      audit,
-      sections,
-      categories,
-      subCategories,
-      regulatories,
-      infoTableRows,
-      arretePrefectoralRows,
-      exploitationRows,
-      auditRows,
-      templateElements,
-      auditElements,
-      images
-    });
-    doc.output('dataurlnewwindow');
-  }, [building, audit, sections, categories, subCategories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+  const handleVisualizePDF = useCallback(async () => {
+    try {
+      const doc = await generateAuditPDF({
+        building,
+        audit,
+        sections,
+        categories,
+        subCategories,
+        regulatories,
+        infoTableRows,
+        arretePrefectoralRows,
+        exploitationRows,
+        auditRows,
+        templateElements,
+        auditElements,
+        images
+      });
+      const pdfDataUri = doc.output('datauristring');
+      window.open(pdfDataUri);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      // Add appropriate error handling here
+    }
+  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
 
   return (
     <div className="min-h-screen bg-gray-50">
