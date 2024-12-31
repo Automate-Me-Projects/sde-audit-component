@@ -31,8 +31,8 @@ const HEADER_HEIGHT = 20;
 
 // Define colors as tuples with explicit type
 const HEADER_BG_COLOR = [0, 106, 60] as [number, number, number];
-const CATEGORY_BG_COLOR = [160, 205, 99] as [number, number, number];
-const SUBCATEGORY_BG_COLOR = [235, 241, 217] as [number, number, number];
+const GREEN_BG_COLOR = [160, 205, 99] as [number, number, number];
+const LIGHTGREEN_BG_COLOR = [235, 241, 217] as [number, number, number];
 
 const addHeader = (doc: jsPDF) => {
   // Add green background
@@ -65,30 +65,44 @@ const addInfoTable = (doc: jsPDF, rows: TableRow[], title?: string, startY: numb
 
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
   const cellPadding = 5;
-  const labelWidth = 80;
-  const valueWidth = CONTENT_WIDTH - labelWidth - 40;
+  
+  // Calculate table dimensions
+  const tableWidth = CONTENT_WIDTH * 0.9; // Use 90% of content width
+  const labelWidth = tableWidth * 0.3; // 30% for label
+  const valueWidth = tableWidth * 0.7; // 70% for value
+  
+  // Center the table by calculating left margin
+  const tableMarginX = MARGIN_X + (CONTENT_WIDTH - tableWidth) / 2;
 
   rows.forEach(row => {
+    // Split text for both columns
+    const label = String(row.label || '');
+    const value = String(row.value || '');
+    
+    const labelLines = doc.splitTextToSize(label, labelWidth - 4);
+    const valueLines = doc.splitTextToSize(value, valueWidth - 4);
+    
+    // Calculate the maximum number of lines needed
+    const maxLines = Math.max(labelLines.length, valueLines.length);
+    const actualRowHeight = Math.max(7, maxLines * 3.5 + cellPadding);
+    
     // Draw label cell
     doc.setDrawColor(200, 200, 200);
     doc.setFillColor(240, 240, 240);
-    doc.rect(MARGIN_X, startY - 5, labelWidth, 7, 'FD');
-    doc.text(String(row.label || ''), MARGIN_X + 2, startY);
-
+    doc.rect(tableMarginX, startY - 3, labelWidth, actualRowHeight, 'FD');
+    
     // Draw value cell
     doc.setFillColor(255, 255, 255);
-    doc.rect(MARGIN_X + labelWidth, startY - 5, valueWidth, 7, 'FD');
-    const value = String(row.value || '');
-    // Split long text if needed
-    if (doc.getTextWidth(value) > valueWidth - 4) {
-      const lines = doc.splitTextToSize(value, valueWidth - 4);
-      doc.text(lines[0], MARGIN_X + labelWidth + 2, startY);
-    } else {
-      doc.text(value, MARGIN_X + labelWidth + 2, startY);
-    }
+    doc.rect(tableMarginX + labelWidth, startY - 3, valueWidth, actualRowHeight, 'FD');
+    
+    // Add text with vertical centering
+    const textStartY = startY + (cellPadding / 2);
+    doc.text(labelLines, tableMarginX + 2, textStartY);
+    doc.text(valueLines, tableMarginX + labelWidth + 2, textStartY);
 
-    startY += cellPadding + 4;
+    startY += actualRowHeight + 2; // Small gap between rows
   });
 
   return startY;
@@ -117,37 +131,38 @@ const renderAuditElementRow = (expandedElement: ExpandedElement, startY: number,
   const statusLines = doc.splitTextToSize(status, statusWidth - 4);
 
   const maxLines = Math.max(nameLines.length, constatLines.length, statusLines.length);
-  const rowHeight = maxLines * 4 + 6;
+  const lineHeight = 4;
+  const padding = 6;
+  const rowHeight = maxLines * lineHeight + padding;
 
-  // Draw backgrounds and borders
-  doc.setFillColor(245, 245, 245);
+  // Draw backgrounds (white) and borders
+  doc.setFillColor(255, 255, 255);
   doc.setDrawColor(200, 200, 200);
   
-  // Name column
-  doc.rect(xPositions[0], startY - 3, nameWidth - 2, rowHeight, 'FD');
-  
-  // Constat column
-  doc.rect(xPositions[1], startY - 3, constatWidth - 2, rowHeight, 'FD');
-  
-  // Status column
-  doc.rect(xPositions[2], startY - 3, statusWidth - 2, rowHeight, 'FD');
+  // Draw cells with no gaps between them
+  doc.rect(xPositions[0], startY - 3, nameWidth, rowHeight, 'FD');
+  doc.rect(xPositions[1], startY - 3, constatWidth, rowHeight, 'FD');
+  doc.rect(xPositions[2], startY - 3, statusWidth, rowHeight, 'FD');
 
-  // Add text
-  doc.text(nameLines, xPositions[0] + 2, startY);
-  doc.text(constatLines, xPositions[1] + 2, startY);
-  doc.text(statusLines, xPositions[2] + 2, startY);
+  // Calculate vertical center position for text
+  const textStartY = startY + (padding / 2);
+
+  // Add text centered vertically
+  doc.text(nameLines, xPositions[0] + 2, textStartY);
+  doc.text(constatLines, xPositions[1] + 2, textStartY);
+  doc.text(statusLines, xPositions[2] + 2, textStartY);
 
   return rowHeight;
 };
 
 const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number): number => {
-  doc.setFontSize(9);
+  doc.setFontSize(8); // Smaller font size
   doc.setTextColor(0, 0, 0);
   doc.setFillColor(240, 240, 240);
   
   const text = String(regulatory.text || '');
-  const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 4);
-  const height = lines.length * 4 + 6;
+  const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 8); // More padding
+  const height = lines.length * 3.5 + 6; // Adjusted line height
   
   // Check if regulatory would overflow page
   if (yPosition + height > doc.internal.pageSize.height - FOOTER_HEIGHT) {
@@ -157,7 +172,7 @@ const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number)
   }
   
   doc.rect(MARGIN_X, yPosition - 3, CONTENT_WIDTH, height, 'F');
-  doc.text(lines, MARGIN_X + 2, yPosition);
+  doc.text(lines, MARGIN_X + 4, yPosition + 2); // Added padding and vertical centering
   return height;
 };
 
@@ -211,11 +226,10 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   
   // Calculate total height needed
   const titleHeight = 8;
-  const regulatoryHeight = 0; // Will be calculated if regulatory exists
-  const elementHeight = elements.length * 15; // Approximate height per element
+  const regulatoryHeight = 0;
+  const elementHeight = elements.length * 15;
   const totalHeight = titleHeight + regulatoryHeight + elementHeight;
 
-  // If content would split across pages, start on new page
   if (yPosition + titleHeight > doc.internal.pageSize.height - FOOTER_HEIGHT - 30 ||
       yPosition + totalHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
@@ -224,25 +238,31 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   }
 
   // SubCategory title with background
-  doc.setFillColor(SUBCATEGORY_BG_COLOR[0], SUBCATEGORY_BG_COLOR[1], SUBCATEGORY_BG_COLOR[2]);
+  doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, yPosition - 3, CONTENT_WIDTH, titleHeight, 'F');
   
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
-  doc.text(String(subCategory.name || ''), MARGIN_X + 10, yPosition + 2);
+  
+  // Center text horizontally and vertically
+  const text = String(subCategory.name || '');
+  const textWidth = doc.getTextWidth(text);
+  const xPos = MARGIN_X + (CONTENT_WIDTH - textWidth) / 2;
+  doc.text(text, xPos, yPosition + 2);
+  
   yPosition += titleHeight;
 
   // Render regulatory for this subcategory if exists
   const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
   if (regulatory) {
     const height = renderRegulatory(regulatory, doc, yPosition);
-    yPosition += height + 4;
+    yPosition += height; // Removed extra spacing
   }
 
-  // Render elements
+  // Render elements with no extra spacing
   elements.forEach(element => {
     const rowHeight = renderAuditElementRow(element, yPosition, doc);
-    yPosition += rowHeight + 1; // Reduced spacing between elements
+    yPosition += rowHeight;
   });
 
   return yPosition;
@@ -278,10 +298,18 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
 
   // Category title
   doc.setFontSize(12);
-  doc.setFillColor(CATEGORY_BG_COLOR[0], CATEGORY_BG_COLOR[1], CATEGORY_BG_COLOR[2]);
+  doc.setFont('helvetica', 'bold'); // Set bold font
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, yPosition - 3, CONTENT_WIDTH, titleHeight, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.text(String(category.name || ''), MARGIN_X + 2, yPosition + 2);
+  
+  // Center text horizontally and vertically
+  const text = String(category.name || '');
+  const textWidth = doc.getTextWidth(text);
+  const xPos = MARGIN_X + (CONTENT_WIDTH - textWidth) / 2;
+  doc.text(text, xPos, yPosition + 2);
+  
+  doc.setFont('helvetica', 'normal'); // Reset font weight
   yPosition += titleHeight;
 
   // Render regulatory if exists
@@ -293,7 +321,7 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
     );
     if (regulatory) {
       const height = renderRegulatory(regulatory, doc, yPosition);
-      yPosition += height + 4;
+      yPosition += height; // Removed extra spacing
     }
   }
 
@@ -306,7 +334,7 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
   if (directElements.length > 0) {
     directElements.forEach(element => {
       const rowHeight = renderAuditElementRow(element, yPosition, doc);
-      yPosition += rowHeight + 1; // Reduced spacing between elements
+      yPosition += rowHeight;
     });
   }
 
@@ -369,26 +397,58 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     format: 'a4'
   });
 
-  // Page 1: Info Table
-  addHeader(doc);
-  let yPosition = addInfoTable(doc, infoTableRows);
+  // Page 1: Cover
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.setTextColor(0, 106, 60); // Dark green color
+  doc.text('AUDIT DE SUIVI ICPE', MARGIN_X, 40);
 
-  // Page 2: Arrêté préfectoral & Exploitation info
+  // Date
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 106, 60);
+  const formattedDate = audit?.visitDate;
+  doc.text(formattedDate, MARGIN_X, 60);
+
+  // Building name (centered)
+  doc.setFontSize(28);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
+  const buildingName = building?.name || '';
+  const buildingNameWidth = doc.getTextWidth(buildingName);
+  const centerX = (doc.internal.pageSize.width - buildingNameWidth) / 2;
+  doc.text(buildingName, centerX, 120);
+
+  // Address (bottom right)
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
+  const address = building?.address || '';
+  const addressWidth = doc.getTextWidth(address);
+  const rightX = doc.internal.pageSize.width - MARGIN_X - addressWidth;
+  doc.text(address, rightX, doc.internal.pageSize.height - 30);
+
+  // Page 3: Exploitation & Visit info
   doc.addPage();
   addHeader(doc);
-  yPosition = HEADER_HEIGHT + 5;
-  yPosition = addInfoTable(doc, arretePrefectoralRows, 'Informations relatives à l\'arrêté préfectoral', yPosition);
+  let yPosition = HEADER_HEIGHT + 5;
+  yPosition = addInfoTable(doc, infoTableRows, 'INFORMATIONS GÉNÉRALES', yPosition);
   yPosition += 10;
-  yPosition = addInfoTable(doc, exploitationRows, 'Informations relatives à l\'exploitation', yPosition);
-  yPosition = addInfoTable(doc, auditRows, undefined, yPosition);
+  yPosition = addInfoTable(doc, arretePrefectoralRows, 'INFORMATIONS RELATIVES À L\'ARRÊTÉ PRÉFECTORAL', yPosition);
+  yPosition += 10;
+  yPosition = addInfoTable(doc, exploitationRows, 'INFORMATIONS RELATIVES À L\'EXPLOITATION', yPosition);
+  yPosition += 10;
 
-  // Page 3: ICPE Table
+  // Visit info
+  yPosition = addInfoTable(doc, auditRows, 'DATE DE LA VISITE ET RÉDACTION DU RAPPORT', yPosition);
+
+  // Page 4: ICPE Table
   doc.addPage();
   addHeader(doc);
   yPosition = HEADER_HEIGHT + 5;
   doc.setFontSize(12);
   doc.setTextColor(0, 106, 60);
-  doc.text('Rubriques ICPE', MARGIN_X, yPosition);
+  doc.text('CLASSEMENT ICPE', MARGIN_X, yPosition);
   yPosition += 15;
 
   // Define column widths
@@ -400,26 +460,36 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   };
 
   // ICPE Table header
-  doc.setFillColor(0, 106, 60);
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]); // Use same green as categories
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  
+  // Draw header cells with no gaps
   let xPos = MARGIN_X;
-  
-  // Draw header cells
-  doc.rect(xPos, yPosition - 5, colWidths.rubrique, 7, 'F');
-  doc.text('Rubrique', xPos + 2, yPosition);
-  xPos += colWidths.rubrique;
-  
-  doc.rect(xPos, yPosition - 5, colWidths.nature, 7, 'F');
-  doc.text('Nature des activités', xPos + 2, yPosition);
-  xPos += colWidths.nature;
-  
-  doc.rect(xPos, yPosition - 5, colWidths.capacite, 7, 'F');
-  doc.text('Capacité', xPos + 2, yPosition);
-  xPos += colWidths.capacite;
-  
-  doc.rect(xPos, yPosition - 5, colWidths.regime, 7, 'F');
-  doc.text('Régime', xPos + 2, yPosition);
+  const headerHeight = 7;
+  const headers = [
+    { key: 'rubrique', text: 'Rubrique' },
+    { key: 'nature', text: 'Nature des activités' },
+    { key: 'capacite', text: 'Capacité' },
+    { key: 'regime', text: 'Régime' }
+  ];
+
+  // First draw all backgrounds
+  headers.forEach(header => {
+    doc.rect(xPos, yPosition - 5, colWidths[header.key], headerHeight, 'F');
+    xPos += colWidths[header.key];
+  });
+
+  // Then draw all text (to ensure text is on top)
+  xPos = MARGIN_X;
+  headers.forEach(header => {
+    // Center text in column
+    const textWidth = doc.getTextWidth(header.text);
+    const centerX = xPos + (colWidths[header.key] - textWidth) / 2;
+    doc.text(header.text, centerX, yPosition);
+    xPos += colWidths[header.key];
+  });
   
   yPosition += 8;
 
@@ -435,34 +505,52 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
     xPos = MARGIN_X;
     
-    // Calculate required height for description
+    // Calculate required height for all columns
     const description = String(icpe.description || '');
-    const descLines = doc.splitTextToSize(description, colWidths.nature - 4);
     const capacity = String(icpe.capacity || '');
-    const capLines = doc.splitTextToSize(capacity, colWidths.capacite - 4);
-    const maxLines = Math.max(descLines.length, capLines.length);
-    const actualRowHeight = Math.max(7, maxLines * 4 + 3);
+    const regime = String(icpe.regime || '');
+    const rubrique = String(icpe.rubrique || '');
     
-    // Draw content cells with borders
-    doc.rect(xPos, yPosition - 5, colWidths.rubrique, actualRowHeight);
-    doc.text(String(icpe.rubrique || ''), xPos + 2, yPosition);
+    const descLines = doc.splitTextToSize(description, colWidths.nature - 4);
+    const capLines = doc.splitTextToSize(capacity, colWidths.capacite - 4);
+    const regimeLines = doc.splitTextToSize(regime, colWidths.regime - 4);
+    const rubriqueLines = doc.splitTextToSize(rubrique, colWidths.rubrique - 4);
+    
+    const maxLines = Math.max(
+      descLines.length,
+      capLines.length,
+      regimeLines.length,
+      rubriqueLines.length
+    );
+    
+    const lineHeight = 3.5;
+    const cellPadding = 4;
+    const actualRowHeight = Math.max(7, maxLines * lineHeight + cellPadding);
+    
+    // Draw cells with no gaps
+    // Rubrique
+    doc.rect(xPos, yPosition - 3, colWidths.rubrique, actualRowHeight);
+    doc.text(rubriqueLines, xPos + 2, yPosition);
     xPos += colWidths.rubrique;
     
-    doc.rect(xPos, yPosition - 5, colWidths.nature, actualRowHeight);
-    doc.text(descLines[0], xPos + 2, yPosition);
+    // Nature
+    doc.rect(xPos, yPosition - 3, colWidths.nature, actualRowHeight);
+    doc.text(descLines, xPos + 2, yPosition);
     xPos += colWidths.nature;
     
-    doc.rect(xPos, yPosition - 5, colWidths.capacite, actualRowHeight);
-    doc.text(capLines[0], xPos + 2, yPosition);
+    // Capacité
+    doc.rect(xPos, yPosition - 3, colWidths.capacite, actualRowHeight);
+    doc.text(capLines, xPos + 2, yPosition);
     xPos += colWidths.capacite;
     
-    doc.rect(xPos, yPosition - 5, colWidths.regime, actualRowHeight);
-    doc.text(String(icpe.regime || ''), xPos + 2, yPosition);
+    // Régime
+    doc.rect(xPos, yPosition - 3, colWidths.regime, actualRowHeight);
+    doc.text(regimeLines, xPos + 2, yPosition);
     
-    yPosition += actualRowHeight + 1;
+    yPosition += actualRowHeight; // Remove extra spacing
   });
 
-  // Page 4: Synthèse
+  // Page 5: Synthèse
   doc.addPage();
   addHeader(doc);
   yPosition = HEADER_HEIGHT + 5;
@@ -553,7 +641,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
       
       const constat = `Constat: ${String(item.constat || '')}`;
       const constLines = doc.splitTextToSize(constat, CONTENT_WIDTH - 20);
-      doc.text(constLines[0], MARGIN_X + 15, yPosition);
+      doc.text(constLines, MARGIN_X + 15, yPosition);
       yPosition += 8;
     });
 
@@ -571,16 +659,21 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
       categories.some(category => category.section === section._id)
     );
 
-    validSections.forEach(section => {
-      // Section title
-      if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT - 30) {
+    // Sort sections by position
+    const sortedSections = sortSectionsByPosition(validSections);
+
+    sortedSections.forEach((section, index) => {
+      // Always start a new page for each section
+      if (index > 0) {
         doc.addPage();
         addHeader(doc);
         yPosition = HEADER_HEIGHT + 5;
       }
 
-      doc.setFontSize(14);
-      doc.setTextColor(0, 0, 0);
+      // Section title
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 106, 60);
       doc.text(String(section.name || ''), MARGIN_X, yPosition);
       yPosition += 10;
 
