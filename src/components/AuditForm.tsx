@@ -6,7 +6,7 @@ import { AddElementModal } from './AddElementModal';
 import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
-import { ImageGallery } from './ImageGallery';
+import ImageGallery from './ImageGallery';
 import { generateTempId, formatDate } from '../utils';
 import { generateAuditPDF } from '../utils/pdfGenerator';
 import type { AuditFormProps, ExpandedElement } from '../types';
@@ -28,7 +28,8 @@ const AuditFormComponent = React.memo(({
   onElementDelete,
   onElementDuplicate,
   onTemplateElementAdd,
-  onICPEBuildingChange
+  onICPEBuildingChange,
+  onDeleteImage
 }: AuditFormProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -169,13 +170,26 @@ const AuditFormComponent = React.memo(({
         auditElements,
         images
       });
-      const pdfDataUri = doc.output('datauristring');
-      window.open(pdfDataUri);
+      const pdfBlob = new Blob([doc.output('blob')], { type: 'application/pdf' });
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      window.open(blobUrl, '_blank');
+      // Clean up the blob URL after opening
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     } catch (error) {
       console.error('Error generating PDF:', error);
       // Add appropriate error handling here
     }
   }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+
+  const handleDeleteImage = async (image: any) => {
+    try {
+      if (onDeleteImage) {
+        await onDeleteImage(image);
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -274,7 +288,10 @@ const AuditFormComponent = React.memo(({
           onElementDelete={handleElementDelete}
         />
 
-        <ImageGallery images={images} />
+        <ImageGallery 
+          images={images} 
+          onDelete={handleDeleteImage}
+        />
       </div>
 
       <AddElementModal

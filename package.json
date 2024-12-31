@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.717.0",
+    "@aws-sdk/s3-request-presigner": "^3.717.0",
     "@headlessui/react": "^1.7.18",
     "@tryretool/custom-component-support": "^1.4.0",
+    "dotenv": "^16.4.7",
     "jspdf": "^2.5.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.358.0",
@@ -34,6 +37,7 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",
+    "@types/jsdom": "^21.1.7",
     "@types/lodash": "^4.14.202",
     "@types/react": "^18.2.55",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
@@ -41,6 +45,7 @@
     "css-loader": "^6.10.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.1",
+    "jsdom": "^25.0.1",
     "mini-css-extract-plugin": "^2.8.0",
     "postcss-modules": "^6.0.0",
     "postcss-nesting": "^12.0.2",

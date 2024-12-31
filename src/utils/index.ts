@@ -69,15 +69,10 @@ export const formatDate = (date: string | null | undefined): string => {
   return `${months[dateObject.getMonth()]} ${dateObject.getFullYear()}`;
 };
 
-export const compareImageNames = (a: string, b: string): number => {
-  const getNumber = (name: string) => {
-    const match = name.match(/\((\d+)\)/);
-    return match ? parseInt(match[1]) : 0;
-  };
-  
-  const numA = getNumber(a);
-  const numB = getNumber(b);
-  return numA - numB;
+export const compareImageNames = (a?: string, b?: string): number => {
+  const nameA = (a || '').toLowerCase();
+  const nameB = (b || '').toLowerCase();
+  return nameA.localeCompare(nameB);
 };
 
 export const getFileNameWithoutExtension = (fileName: string): string => {

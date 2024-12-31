@@ -162,15 +162,12 @@ const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number)
 };
 
 const expandTemplateElements = (elements: TemplateElement[], auditElements: AuditElement[]): any[] => {
-  console.log('Expanding template elements:', elements.length);
   return elements.flatMap((templateElement): any[] => {
     // Find all matching audit elements for this template element
     const matchingAuditElements = auditElements.filter(ae => ae.templateElementId === templateElement._id);
-    console.log(`Found ${matchingAuditElements.length} audit elements for template element ${templateElement._id}`);
 
     // If no audit elements found, return the template element with null audit element
     if (matchingAuditElements.length === 0) {
-      console.log('No audit elements found, returning template element with null audit');
       return [{
         ...templateElement,
         auditElement: null
@@ -178,7 +175,6 @@ const expandTemplateElements = (elements: TemplateElement[], auditElements: Audi
     }
 
     // Create a copy of the template element for each matching audit element
-    console.log('Creating expanded elements with audit elements');
     return matchingAuditElements.map(auditElement => ({
       ...templateElement,
       auditElement
@@ -187,31 +183,25 @@ const expandTemplateElements = (elements: TemplateElement[], auditElements: Audi
 };
 
 const getTemplateElementsForSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): any[] => {
-  console.log(`Getting template elements for subcategory ${subCategory._id}`);
   const elements = templateElements.filter(element => 
     element.subCategoryId === subCategory._id && 
     element.templateVersion?.includes(audit.templateVersion)
   );
-  console.log(`Found ${elements.length} template elements for subcategory`);
   
   const expandedElements = expandTemplateElements(elements, auditElements);
   const sortedElements = sortExpandedTemplateElements(expandedElements, audit.templateVersion);
-  console.log(`Returning ${sortedElements.length} sorted elements for subcategory`);
   return sortedElements;
 };
 
 const getDirectTemplateElements = (categoryId: string, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): any[] => {
-  console.log(`Getting direct template elements for category ${categoryId}`);
   const elements = templateElements.filter(element => 
     element.categoryId === categoryId && 
     !element.subCategoryId && 
     element.templateVersion?.includes(audit.templateVersion)
   );
-  console.log(`Found ${elements.length} direct template elements for category`);
   
   const expandedElements = expandTemplateElements(elements, auditElements);
   const sortedElements = sortExpandedTemplateElements(expandedElements, audit.templateVersion);
-  console.log(`Returning ${sortedElements.length} sorted direct elements for category`);
   return sortedElements;
 };
 
