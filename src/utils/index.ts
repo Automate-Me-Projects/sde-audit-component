@@ -1,6 +1,6 @@
 import { Section, Category, SubCategory, TemplateElement, ExpandedElement } from '../types';
 
-export const sortByPosition = (items: any[], templateVersion: number): any[] => {
+export const sortByPosition = (items: Category[] | SubCategory[] | TemplateElement[], templateVersion: number): Category[] | SubCategory[] | TemplateElement[] => {
   return [...items].sort((a, b) => {
     const posA = a.positionByVersion?.[templateVersion - 1] ?? Infinity;
     const posB = b.positionByVersion?.[templateVersion - 1] ?? Infinity;
@@ -67,6 +67,12 @@ export const formatDate = (date: string | null | undefined): string => {
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
   ];
   return `${months[dateObject.getMonth()]} ${dateObject.getFullYear()}`;
+};
+
+export const formatDateToFrench = (date: string | null | undefined): string => {
+  if (!date) return '';
+  const [year, month, day] = date.split('-');
+  return `${day}/${month}/${year}`;
 };
 
 export const compareImageNames = (a?: string, b?: string): number => {

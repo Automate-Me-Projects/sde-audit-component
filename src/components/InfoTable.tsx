@@ -3,6 +3,7 @@ import React from 'react';
 interface Row {
   label: string;
   value: string;
+  displayValue?: string;
   editable?: boolean;
   onChange?: (value: string) => void;
 }
@@ -30,7 +31,7 @@ export const InfoTable: React.FC<InfoTableProps> = ({ title, rows }) => {
                   isDateField(row.label) ? (
                     <input
                       type="date"
-                      value={row.value}
+                      value={row.displayValue ?? row.value}
                       onChange={(e) => row.onChange?.(e.target.value)}
                       className="p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
                     />

@@ -7,9 +7,9 @@ import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import ImageGallery from './ImageGallery';
-import { generateTempId, formatDate } from '../utils';
+import { generateTempId, formatDateToFrench, formatDate } from '../utils';
 import { generateAuditPDF } from '../utils/pdfGenerator';
-import type { AuditFormProps, ExpandedElement } from '../types';
+import type { AuditFormProps, ExpandedElement, Image } from '../types';
 
 const AuditFormComponent = React.memo(({
   audit,
@@ -73,13 +73,15 @@ const AuditFormComponent = React.memo(({
   const auditRows = useMemo(() => [
     { 
       label: 'Date de visite :', 
-      value: audit?.visitDate ?? '', 
+      value: formatDateToFrench(audit?.visitDate) ?? '', 
+      displayValue: audit?.visitDate ?? '', 
       editable: true, 
       onChange: (value: string) => handleAuditDataChange('visitDate', value) 
     },
     { 
       label: "Date d'émission du rapport :", 
-      value: audit?.reportDate ?? '', 
+      value: formatDateToFrench(audit?.reportDate) ?? '', 
+      displayValue: audit?.reportDate ?? '', 
       editable: true, 
       onChange: (value: string) => handleAuditDataChange('reportDate', value) 
     },
@@ -181,7 +183,7 @@ const AuditFormComponent = React.memo(({
     }
   }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
 
-  const handleDeleteImage = async (image: any) => {
+  const handleDeleteImage = async (image: Image) => {
     try {
       if (onDeleteImage) {
         await onDeleteImage(image);

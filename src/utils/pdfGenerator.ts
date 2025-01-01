@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { Building, Audit, Section, Category, SubCategory, Regulatory, Image, TemplateElement, ExpandedElement, AuditElement } from '../types';
-import { sortByPosition, sortSectionsByPosition, sortExpandedTemplateElements } from './index';
+import { sortByPosition, sortSectionsByPosition, sortExpandedTemplateElements, formatDateToFrench, formatDate } from './index';
 
 interface TableRow {
   label: string;
@@ -34,15 +34,22 @@ const HEADER_BG_COLOR = [0, 106, 60] as [number, number, number];
 const GREEN_BG_COLOR = [160, 205, 99] as [number, number, number];
 const LIGHTGREEN_BG_COLOR = [235, 241, 217] as [number, number, number];
 
-const addHeader = (doc: jsPDF) => {
+const addHeader = (doc: jsPDF, building: Building, audit: Audit) => {
   // Add green background
   doc.setFillColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
   doc.rect(0, 0, PAGE_WIDTH, HEADER_HEIGHT, 'F');
   
   // Add text
   doc.setFontSize(12);
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(255, 255, 255);
-  doc.text('Audit de conformité réglementaire', MARGIN_X, HEADER_HEIGHT - 5);
+
+  // Calculate vertical center
+  const text = `Audit de conformité réglementaire ${building?.name ?? ''} - ${formatDateToFrench(audit?.visitDate ?? '')}`;
+  const textHeight = doc.getTextDimensions(text).h;
+  const verticalCenter = (HEADER_HEIGHT + textHeight) / 2;
+
+  doc.text(text, MARGIN_X, verticalCenter);
 };
 
 const addFooter = (doc: jsPDF) => {
@@ -58,7 +65,8 @@ const addFooter = (doc: jsPDF) => {
 const addInfoTable = (doc: jsPDF, rows: TableRow[], title?: string, startY: number = HEADER_HEIGHT + 10) => {
   if (title) {
     doc.setFontSize(12);
-    doc.setTextColor(0, 106, 60); // Green color for titles
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]); // Green color for titles
     doc.text(title, MARGIN_X, startY);
     startY += 10;
   }
@@ -66,7 +74,6 @@ const addInfoTable = (doc: jsPDF, rows: TableRow[], title?: string, startY: numb
   doc.setFontSize(9);
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
-  const cellPadding = 5;
   
   // Calculate table dimensions
   const tableWidth = CONTENT_WIDTH * 0.9; // Use 90% of content width
@@ -86,7 +93,7 @@ const addInfoTable = (doc: jsPDF, rows: TableRow[], title?: string, startY: numb
     
     // Calculate the maximum number of lines needed
     const maxLines = Math.max(labelLines.length, valueLines.length);
-    const actualRowHeight = Math.max(7, maxLines * 3.5 + cellPadding);
+    const actualRowHeight = Math.max(7, maxLines * 3.5 + 5);
     
     // Draw label cell
     doc.setDrawColor(200, 200, 200);
@@ -98,7 +105,7 @@ const addInfoTable = (doc: jsPDF, rows: TableRow[], title?: string, startY: numb
     doc.rect(tableMarginX + labelWidth, startY - 3, valueWidth, actualRowHeight, 'FD');
     
     // Add text with vertical centering
-    const textStartY = startY + (cellPadding / 2);
+    const textStartY = startY + (5 / 2);
     doc.text(labelLines, tableMarginX + 2, textStartY);
     doc.text(valueLines, tableMarginX + labelWidth + 2, textStartY);
 
@@ -155,7 +162,7 @@ const renderAuditElementRow = (expandedElement: ExpandedElement, startY: number,
   return rowHeight;
 };
 
-const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number): number => {
+const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number, building: Building, audit: Audit): number => {
   doc.setFontSize(8); // Smaller font size
   doc.setTextColor(0, 0, 0);
   doc.setFillColor(240, 240, 240);
@@ -167,7 +174,7 @@ const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number)
   // Check if regulatory would overflow page
   if (yPosition + height > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
-    addHeader(doc);
+    addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + 10;
   }
   
@@ -176,8 +183,8 @@ const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: number)
   return height;
 };
 
-const expandTemplateElements = (elements: TemplateElement[], auditElements: AuditElement[]): any[] => {
-  return elements.flatMap((templateElement): any[] => {
+const expandTemplateElements = (elements: TemplateElement[], auditElements: AuditElement[]): ExpandedElement[] => {
+  return elements.flatMap((templateElement): ExpandedElement[] => {
     // Find all matching audit elements for this template element
     const matchingAuditElements = auditElements.filter(ae => ae.templateElementId === templateElement._id);
 
@@ -197,7 +204,7 @@ const expandTemplateElements = (elements: TemplateElement[], auditElements: Audi
   });
 };
 
-const getTemplateElementsForSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): any[] => {
+const getTemplateElementsForSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): TemplateElement[] => {
   const elements = templateElements.filter(element => 
     element.subCategoryId === subCategory._id && 
     element.templateVersion?.includes(audit.templateVersion)
@@ -208,7 +215,7 @@ const getTemplateElementsForSubCategory = (subCategory: SubCategory, templateEle
   return sortedElements;
 };
 
-const getDirectTemplateElements = (categoryId: string, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): any[] => {
+const getDirectTemplateElements = (categoryId: string, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[]): TemplateElement[] => {
   const elements = templateElements.filter(element => 
     element.categoryId === categoryId && 
     !element.subCategoryId && 
@@ -220,7 +227,7 @@ const getDirectTemplateElements = (categoryId: string, templateElements: Templat
   return sortedElements;
 };
 
-const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], audit: Audit, auditElements: AuditElement[], regulatories: Regulatory[], doc: jsPDF, yPosition: number): number => {
+const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], building: Building, audit: Audit, auditElements: AuditElement[], regulatories: Regulatory[], doc: jsPDF, yPosition: number): number => {
   // Get elements for this subcategory
   const elements = getTemplateElementsForSubCategory(subCategory, templateElements, audit, auditElements);
   
@@ -233,7 +240,7 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   if (yPosition + titleHeight > doc.internal.pageSize.height - FOOTER_HEIGHT - 30 ||
       yPosition + totalHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
-    addHeader(doc);
+    addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + 5;
   }
 
@@ -255,25 +262,26 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   // Render regulatory for this subcategory if exists
   const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
   if (regulatory) {
-    const height = renderRegulatory(regulatory, doc, yPosition);
+    const height = renderRegulatory(regulatory, doc, yPosition, building, audit);
     yPosition += height; // Removed extra spacing
   }
 
   // Render elements with no extra spacing
-  elements.forEach(element => {
-    const rowHeight = renderAuditElementRow(element, yPosition, doc);
+  const expandedElements = expandTemplateElements(elements, auditElements);
+  expandedElements.forEach(expandedElement => {
+    const rowHeight = renderAuditElementRow(expandedElement, yPosition, doc);
     yPosition += rowHeight;
   });
 
   return yPosition;
 };
 
-const renderCategory = (audit: Audit, category: Category, templateElements: TemplateElement[], auditElements: AuditElement[], subCategories: SubCategory[], regulatories: Regulatory[], doc: jsPDF, yPosition: number, sectionId?: string) => {
+const renderCategory = (audit: Audit, building: Building, category: Category, templateElements: TemplateElement[], auditElements: AuditElement[], subCategories: SubCategory[], regulatories: Regulatory[], doc: jsPDF, yPosition: number, sectionId?: string) => {
   // Get and sort subcategories
   const categorySubCategories = sortByPosition(
     subCategories.filter(sc => sc.categoryId === category._id),
     audit.templateVersion
-  );
+  ) as SubCategory[];
 
   // Get direct elements
   const directElements = getDirectTemplateElements(category._id, templateElements, audit, auditElements);
@@ -281,7 +289,7 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
   // Calculate total height needed
   const titleHeight = 8;
   const regulatoryHeight = 0; // Will be calculated if regulatory exists
-  const subCategoriesHeight = categorySubCategories.reduce((acc, sc) => {
+  const subCategoriesHeight = categorySubCategories.reduce((acc: number, sc: SubCategory) => {
     const elements = getTemplateElementsForSubCategory(sc, templateElements, audit, auditElements);
     return acc + 8 + (elements.length * 15); // title + elements
   }, 0);
@@ -292,7 +300,7 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
   if (yPosition + titleHeight > doc.internal.pageSize.height - FOOTER_HEIGHT - 30 ||
       yPosition + totalHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
-    addHeader(doc);
+    addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + 5;
   }
 
@@ -320,19 +328,20 @@ const renderCategory = (audit: Audit, category: Category, templateElements: Temp
            (!r.subCategoryId || r.subCategoryId === "null" || r.subCategoryId === "")
     );
     if (regulatory) {
-      const height = renderRegulatory(regulatory, doc, yPosition);
+      const height = renderRegulatory(regulatory, doc, yPosition, building, audit);
       yPosition += height; // Removed extra spacing
     }
   }
 
   // Render subcategories
   categorySubCategories.forEach(subCategory => {
-    yPosition = renderSubCategory(subCategory, templateElements, audit, auditElements, regulatories, doc, yPosition);
+    yPosition = renderSubCategory(subCategory, templateElements, building, audit, auditElements, regulatories, doc, yPosition);
   });
 
   // Render direct elements if any
   if (directElements.length > 0) {
-    directElements.forEach(element => {
+    const expandedDirectElements = expandTemplateElements(directElements, auditElements);
+    expandedDirectElements.forEach(element => {
       const rowHeight = renderAuditElementRow(element, yPosition, doc);
       yPosition += rowHeight;
     });
@@ -407,7 +416,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 106, 60);
-  const formattedDate = audit?.visitDate;
+  const formattedDate = formatDate(audit?.visitDate);
   doc.text(formattedDate, MARGIN_X, 60);
 
   // Building name (centered)
@@ -430,7 +439,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // Page 3: Exploitation & Visit info
   doc.addPage();
-  addHeader(doc);
+  addHeader(doc, building, audit);
   let yPosition = HEADER_HEIGHT + 5;
   yPosition = addInfoTable(doc, infoTableRows, 'INFORMATIONS GÉNÉRALES', yPosition);
   yPosition += 10;
@@ -444,7 +453,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // Page 4: ICPE Table
   doc.addPage();
-  addHeader(doc);
+  addHeader(doc, building, audit);
   yPosition = HEADER_HEIGHT + 5;
   doc.setFontSize(12);
   doc.setTextColor(0, 106, 60);
@@ -459,23 +468,24 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     regime: 30
   };
 
+  type ColWidthKeys = keyof typeof colWidths;
+  
   // ICPE Table header
   doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]); // Use same green as categories
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   
-  // Draw header cells with no gaps
-  let xPos = MARGIN_X;
-  const headerHeight = 7;
-  const headers = [
+  const headers: Array<{ key: ColWidthKeys; text: string }> = [
     { key: 'rubrique', text: 'Rubrique' },
     { key: 'nature', text: 'Nature des activités' },
     { key: 'capacite', text: 'Capacité' },
     { key: 'regime', text: 'Régime' }
   ];
 
-  // First draw all backgrounds
+  // Draw header cells with no gaps
+  let xPos = MARGIN_X;
+  const headerHeight = 7;
   headers.forEach(header => {
     doc.rect(xPos, yPosition - 5, colWidths[header.key], headerHeight, 'F');
     xPos += colWidths[header.key];
@@ -499,7 +509,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   building?.icpeTypes?.forEach((icpe) => {
     if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT) {
       doc.addPage();
-      addHeader(doc);
+      addHeader(doc, building, audit);
       yPosition = HEADER_HEIGHT + 5;
     }
 
@@ -552,11 +562,12 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // Page 5: Synthèse
   doc.addPage();
-  addHeader(doc);
+  addHeader(doc, building, audit);
   yPosition = HEADER_HEIGHT + 5;
   doc.setFontSize(12);
-  doc.setTextColor(0, 106, 60);
-  doc.text('Synthèse', MARGIN_X, yPosition);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
+  doc.text('SYNTHÈSE', MARGIN_X, yPosition);
   yPosition += 15;
 
   // Get all non-conformities and observations
@@ -596,7 +607,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     if (!actor) return;
 
     doc.setFontSize(12);
-    doc.setTextColor(0, 106, 60);
+    doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
     doc.text(actor, MARGIN_X, yPosition);
     yPosition += 10;
 
@@ -650,7 +661,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // Audit Elements section
   doc.addPage();
-  addHeader(doc);
+  addHeader(doc, building, audit);
   yPosition = HEADER_HEIGHT + 5;
 
   if (audit.templateVersion === 2) {
@@ -666,14 +677,14 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
       // Always start a new page for each section
       if (index > 0) {
         doc.addPage();
-        addHeader(doc);
+        addHeader(doc, building, audit);
         yPosition = HEADER_HEIGHT + 5;
       }
 
       // Section title
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 106, 60);
+      doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
       doc.text(String(section.name || ''), MARGIN_X, yPosition);
       yPosition += 10;
 
@@ -685,7 +696,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
       // Render categories
       sectionCategories.forEach(category => {
-        yPosition = renderCategory(audit, category, templateElements, auditElements, subCategories, regulatories, doc, yPosition, section._id);
+        yPosition = renderCategory(audit, building, category, templateElements, auditElements, subCategories, regulatories, doc, yPosition, section._id);
       });
     });
   } else {
@@ -696,17 +707,17 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     const sortedCategories = sortByPosition(validCategories, audit.templateVersion);
 
     sortedCategories.forEach(category => {
-      yPosition = renderCategory(audit, category, templateElements, auditElements, subCategories, regulatories, doc, yPosition, undefined);
+      yPosition = renderCategory(audit, building, category, templateElements, auditElements, subCategories, regulatories, doc, yPosition, undefined);
     });
   }
 
   // Images section
   if (images && images.length > 0) {
     doc.addPage();
-    addHeader(doc);
+    addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + 5;
     doc.setFontSize(12);
-    doc.setTextColor(0, 106, 60);
+    doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
     doc.text('ANNEXES', MARGIN_X, yPosition);
     yPosition += 15;
 
@@ -718,7 +729,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     for (const image of images) {
       if (yPosition + imageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
         doc.addPage();
-        addHeader(doc);
+        addHeader(doc, building, audit);
         yPosition = HEADER_HEIGHT + 5;
         currentImageInRow = 0;
       }
