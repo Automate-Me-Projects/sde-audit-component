@@ -666,100 +666,252 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   doc.addPage();
   addHeader(doc, building, audit);
   yPosition = HEADER_HEIGHT + 5;
+
+  // Add SYNTHÈSE title
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
   doc.text('SYNTHÈSE', MARGIN_X, yPosition);
   yPosition += 15;
 
-  // Get all non-conformities and observations
-  const nonConformes = templateElements.flatMap(element => {
-    // Find all audit elements for this template element
-    const matchingAuditElements = auditElements.filter(ae => 
-      ae.templateElementId === element._id && 
-      ae.status === 'Non conforme'
-    );
+  // Function to check if we need a new page
+  const checkAndAddNewPage = (requiredSpace: number) => {
+    const currentPosition = yPosition;
+    const pageHeight = doc.internal.pageSize.height;
+    if (currentPosition + requiredSpace > pageHeight - FOOTER_HEIGHT) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      yPosition = HEADER_HEIGHT + 10;
+      return true;
+    }
+    return false;
+  };
 
-    return matchingAuditElements.map(auditElement => ({
-      name: element.name,
-      constat: auditElement.constat,
-      action: auditElement.action,
-      actors: audit.actors || [] // Get actors array from audit
-    }));
+  // Calculate required height for text content
+  const calculateTextHeight = (text: string, maxWidth: number) => {
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    return lines.length * 3.5; // Each line is approximately 3.5mm high
+  };
+
+  // Function to render wrapped text with page breaks
+  const renderWrappedText = (text: string, x: number, startY: number, maxWidth: number, label?: string) => {
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    let currentY = startY;
+
+    if (label) {
+      doc.setTextColor(80, 80, 80);
+      doc.text(label, x, currentY);
+      currentY += 3.5; // Reduced from 4 to 3.5
+    }
+
+    doc.setTextColor(0, 0, 0);
+    doc.text(lines, x, currentY);
+    return currentY + (lines.length * 3.5); // Reduced from 4 to 3.5
+  };
+
+  // First, collect all unique actionOwners from auditElements
+  const actionOwnerMap = new Map<string, {
+    nonConformes: Array<{name: string, constat: string, action: string}>,
+    observations: Array<{name: string, constat: string, action: string}>
+  }>();
+
+  auditElements.forEach(auditElement => {
+    const actionOwner = auditElement.actionOwner || 'Non assigné';
+    const templateElement = templateElements.find(te => te._id === auditElement.templateElementId);
+    
+    if (!templateElement) return;
+
+    if (!actionOwnerMap.has(actionOwner)) {
+      actionOwnerMap.set(actionOwner, {
+        nonConformes: [],
+        observations: []
+      });
+    }
+
+    const ownerData = actionOwnerMap.get(actionOwner)!;
+
+    if (auditElement.status === 'Non conforme') {
+      ownerData.nonConformes.push({
+        name: templateElement.name,
+        constat: auditElement.constat || '',
+        action: auditElement.action || ''
+      });
+    } else if (auditElement.status === 'Observation') {
+      ownerData.observations.push({
+        name: templateElement.name,
+        constat: auditElement.constat || '',
+        action: auditElement.action || ''
+      });
+    }
   });
 
-  const observations = templateElements.flatMap(element => {
-    // Find all audit elements for this template element
-    const matchingAuditElements = auditElements.filter(ae => 
-      ae.templateElementId === element._id && 
-      ae.status === 'Observation'
-    );
+  // Separate 'Non assigné' from other actionOwners
+  const nonAssigneData = actionOwnerMap.get('Non assigné');
+  actionOwnerMap.delete('Non assigné');
 
-    return matchingAuditElements.map(auditElement => ({
-      name: element.name,
-      constat: auditElement.constat,
-      actors: audit.actors || [] // Get actors array from audit
-    }));
-  });
+  // Function to render data for an actionOwner
+  const renderActionOwnerData = (data: typeof nonAssigneData, actionOwner: string) => {
+    if (!data || (data.nonConformes.length === 0 && data.observations.length === 0)) {
+      return; // Skip if no items
+    }
 
-  // Group by actors
-  const actorsSet = new Set(audit.actors || ['Non assigné']);
-  
-  Array.from(actorsSet).forEach(actor => {
-    if (!actor) return;
+    checkAndAddNewPage(50);
 
+    // Actor header with background
+    doc.setFillColor(240, 240, 240);
+    doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, 12, 'F');
     doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
     doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
-    doc.text(actor, MARGIN_X, yPosition);
-    yPosition += 10;
+    doc.text(actionOwner.toUpperCase(), MARGIN_X + 5, yPosition + 3);
+    yPosition += 8;
 
-    // Non conformités for this actor
-    const actorNonConformes = nonConformes.filter(item => 
-      (item.actors || []).includes(actor)
-    );
+    // Render non-conformities if any exist
+    if (data.nonConformes.length > 0) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(180, 0, 0);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RECAPITULATIF DES NON-CONFORMITÉS MAJEURES', MARGIN_X + 5, yPosition + 4);
+      yPosition += 12;
 
-    actorNonConformes.forEach((item, index) => {
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      doc.setFillColor(255, 240, 240);
-      const boxHeight = 21;
-      doc.rect(MARGIN_X + 5, yPosition - 5, CONTENT_WIDTH - 10, boxHeight, 'F');
-      doc.text(`NCM${index + 1} - ${String(item.name || '')}`, MARGIN_X + 10, yPosition);
-      yPosition += 5;
-      
-      const constat = `Constat: ${String(item.constat || '')}`;
-      const constLines = doc.splitTextToSize(constat, CONTENT_WIDTH - 20);
-      doc.text(constLines[0], MARGIN_X + 15, yPosition);
-      yPosition += 5;
-      
-      const action = `Action: ${String(item.action || '')}`;
-      const actionLines = doc.splitTextToSize(action, CONTENT_WIDTH - 20);
-      doc.text(actionLines[0], MARGIN_X + 15, yPosition);
-      yPosition += 8;
+      data.nonConformes.forEach((item, index) => {
+        // Calculate heights
+        const constatHeight = calculateTextHeight(item.constat, (CONTENT_WIDTH - 40) / 2);
+        const actionHeight = calculateTextHeight(item.action, (CONTENT_WIDTH - 40) / 2);
+        const contentHeight = Math.max(constatHeight, actionHeight);
+        const totalHeight = contentHeight + 20; // Increased from 15 to 20 for more bottom padding
+
+        // Check if we need a new page
+        if (checkAndAddNewPage(totalHeight)) {
+          yPosition = HEADER_HEIGHT + 10;
+        }
+
+        const startY = yPosition;
+
+        // Draw box with rounded corners
+        doc.setFillColor(252, 242, 242);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+
+        // Title with light red background
+        doc.setFillColor(255, 235, 235);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        doc.setTextColor(180, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`NCM${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+
+        // Draw vertical separator
+        const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
+        doc.setDrawColor(220, 220, 220);
+        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+
+        // Render constat and action
+        const contentY = startY + 12;
+        renderWrappedText(
+          item.constat,
+          MARGIN_X + 12,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Constat:'
+        );
+
+        renderWrappedText(
+          item.action,
+          separatorX + 8,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Action:'
+        );
+
+        yPosition = startY + totalHeight + 4; // Increased from 3 to 4 for more space between items
+      });
+    }
+
+    // Add more margin between non-conformities and observations
+    if (data.nonConformes.length > 0 && data.observations.length > 0) {
+      yPosition += 8; // Add extra space between the two sections
+    }
+
+    // Render observations if any exist
+    if (data.observations.length > 0) {
+      checkAndAddNewPage(30);
+
+      doc.setFillColor(245, 245, 245);
+      doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(150, 120, 0);
+      doc.text('OBSERVATIONS', MARGIN_X + 5, yPosition + 4);
+      yPosition += 12;
+
+      data.observations.forEach((item, index) => {
+        // Calculate height
+        const constatHeight = calculateTextHeight(item.constat, (CONTENT_WIDTH - 40) / 2);
+        const actionHeight = calculateTextHeight(item.action, (CONTENT_WIDTH - 40) / 2);
+        const contentHeight = Math.max(constatHeight, actionHeight);
+        const totalHeight = contentHeight + 20; // Increased from 15 to 20 for more bottom padding
+
+        // Check if we need a new page
+        if (checkAndAddNewPage(totalHeight)) {
+          yPosition = HEADER_HEIGHT + 10;
+        }
+
+        const startY = yPosition;
+
+        // Draw box with rounded corners
+        doc.setFillColor(255, 252, 240);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+
+        // Title with light yellow background
+        doc.setFillColor(255, 250, 230);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        doc.setTextColor(150, 120, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`OBS${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+
+        // Draw vertical separator
+        const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
+        doc.setDrawColor(220, 220, 220);
+        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+
+        // Render constat and action
+        const contentY = startY + 12;
+        renderWrappedText(
+          item.constat,
+          MARGIN_X + 12,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Constat:'
+        );
+
+        renderWrappedText(
+          item.action,
+          separatorX + 8,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Action:'
+        );
+
+        yPosition = startY + totalHeight + 4; // Increased from 3 to 4 for more space between items
+      });
+    }
+
+    yPosition += 10; // Increased from 3 to 10 for more space between action owners
+  };
+
+  // First render all assigned actionOwners
+  Array.from(actionOwnerMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .forEach(([actionOwner, data]) => {
+      renderActionOwnerData(data, actionOwner);
     });
 
-    // Observations for this actor
-    const actorObservations = observations.filter(item => 
-      (item.actors || []).includes(actor)
-    );
-
-    actorObservations.forEach((item, index) => {
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      doc.setFillColor(255, 252, 235);
-      const boxHeight = 16;
-      doc.rect(MARGIN_X + 5, yPosition - 5, CONTENT_WIDTH - 10, boxHeight, 'F');
-      doc.text(`OBS${index + 1} - ${String(item.name || '')}`, MARGIN_X + 10, yPosition);
-      yPosition += 5;
-      
-      const constat = `Constat: ${String(item.constat || '')}`;
-      const constLines = doc.splitTextToSize(constat, CONTENT_WIDTH - 20);
-      doc.text(constLines, MARGIN_X + 15, yPosition);
-      yPosition += 8;
-    });
-
-    yPosition += 5;
-  });
+  // Then render 'Non assigné' if it exists
+  if (nonAssigneData) {
+    renderActionOwnerData(nonAssigneData, 'Non assigné');
+  }
 
   // Audit Elements section
   doc.addPage();
