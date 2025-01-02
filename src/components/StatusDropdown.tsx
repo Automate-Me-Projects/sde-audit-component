@@ -11,6 +11,8 @@ const getBorderColor = (status: string) => {
     case 'Conforme':
       return 'border-2 border-green-500';
     case 'Non conforme':
+      return 'border-2 border-sde-orange';
+    case 'Non conformité majeure':
       return 'border-2 border-red-500';
     default:
       return 'border-2 border-gray-300';

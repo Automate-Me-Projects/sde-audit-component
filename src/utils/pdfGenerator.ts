@@ -535,15 +535,32 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   const address = building?.address || '';
-  const addressWidth = doc.getTextWidth(address);
-  const rightX = doc.internal.pageSize.width - MARGIN_X - addressWidth;
-  doc.text(address, rightX, doc.internal.pageSize.height - 30);
+  
+  // Calculate maximum width available for address
+  const maxWidth = doc.internal.pageSize.width - (2 * MARGIN_X);
+  
+  // Split text if it's too long
+  const textLines = doc.splitTextToSize(address, maxWidth);
+  
+  // Position at bottom right
+  const bottomY = doc.internal.pageSize.height - 30;
+  const rightX = doc.internal.pageSize.width - MARGIN_X;
+  
+  // Right align each line
+  textLines.forEach((line: string, index: number) => {
+    const lineWidth = doc.getTextWidth(line);
+    doc.text(line, rightX - lineWidth, bottomY + (index * 7));
+  });
 
   // Page 3: Exploitation & Visit info
   doc.addPage();
   addHeader(doc, building, audit);
   let yPosition = HEADER_HEIGHT + 5;
-  yPosition = addInfoTable(doc, infoTableRows, 'INFORMATIONS GÉNÉRALES', yPosition);
+  doc.setFontSize(12);
+  doc.setTextColor(0, 106, 60);
+  doc.setFont('helvetica', 'bold');
+  doc.text('INFORMATIONS GÉNÉRALES', MARGIN_X, yPosition);
+
   yPosition += 10;
   yPosition = addInfoTable(doc, arretePrefectoralRows, 'INFORMATIONS RELATIVES À L\'ARRÊTÉ PRÉFECTORAL', yPosition);
   yPosition += 10;
@@ -559,6 +576,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
   yPosition = HEADER_HEIGHT + 5;
   doc.setFontSize(12);
   doc.setTextColor(0, 106, 60);
+  doc.setFont('helvetica', 'bold');
   doc.text('CLASSEMENT ICPE', MARGIN_X, yPosition);
   yPosition += 15;
 
@@ -713,6 +731,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // First, collect all unique actionOwners from auditElements
   const actionOwnerMap = new Map<string, {
+    nonConformiteMajeure: Array<{name: string, constat: string, action: string}>,
     nonConformes: Array<{name: string, constat: string, action: string}>,
     observations: Array<{name: string, constat: string, action: string}>
   }>();
@@ -725,6 +744,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
     if (!actionOwnerMap.has(actionOwner)) {
       actionOwnerMap.set(actionOwner, {
+        nonConformiteMajeure: [],
         nonConformes: [],
         observations: []
       });
@@ -732,7 +752,13 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
     const ownerData = actionOwnerMap.get(actionOwner)!;
 
-    if (auditElement.status === 'Non conforme') {
+    if (auditElement.status === 'Non conformité majeure') {
+      ownerData.nonConformiteMajeure.push({
+        name: templateElement.name,
+        constat: auditElement.constat || '',
+        action: auditElement.action || ''
+      });
+    } else if (auditElement.status === 'Non conforme') {
       ownerData.nonConformes.push({
         name: templateElement.name,
         constat: auditElement.constat || '',
@@ -753,7 +779,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
 
   // Function to render data for an actionOwner
   const renderActionOwnerData = (data: typeof nonAssigneData, actionOwner: string) => {
-    if (!data || (data.nonConformes.length === 0 && data.observations.length === 0)) {
+    if (!data || (data.nonConformiteMajeure.length === 0 && data.nonConformes.length === 0 && data.observations.length === 0)) {
       return; // Skip if no items
     }
 
@@ -768,22 +794,22 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     doc.text(actionOwner.toUpperCase(), MARGIN_X + 5, yPosition + 3);
     yPosition += 8;
 
-    // Render non-conformities if any exist
-    if (data.nonConformes.length > 0) {
+    // Render non-conformités majeures if any exist
+    if (data.nonConformiteMajeure.length > 0) {
       doc.setFillColor(245, 245, 245);
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
-      doc.setTextColor(180, 0, 0);
+      doc.setTextColor(180, 0, 0); // Red color
       doc.setFont('helvetica', 'normal');
       doc.text('RECAPITULATIF DES NON-CONFORMITÉS MAJEURES', MARGIN_X + 5, yPosition + 4);
       yPosition += 12;
 
-      data.nonConformes.forEach((item, index) => {
+      data.nonConformiteMajeure.forEach((item, index) => {
         // Calculate heights
         const constatHeight = calculateTextHeight(item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
-        const totalHeight = contentHeight + 20; // Increased from 15 to 20 for more bottom padding
+        const totalHeight = contentHeight + 20;
 
         // Check if we need a new page
         if (checkAndAddNewPage(totalHeight)) {
@@ -826,7 +852,74 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
           'Action:'
         );
 
-        yPosition = startY + totalHeight + 4; // Increased from 3 to 4 for more space between items
+        yPosition = startY + totalHeight + 4;
+      });
+    }
+
+    // Add margin between sections
+    if (data.nonConformiteMajeure.length > 0 && data.nonConformes.length > 0) {
+      yPosition += 8;
+    }
+
+    // Render non-conformities if any exist
+    if (data.nonConformes.length > 0) {
+      doc.setFillColor(245, 245, 245);
+      doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
+      doc.setFontSize(10);
+      doc.setTextColor(200, 100, 0); // Orange color
+      doc.setFont('helvetica', 'normal');
+      doc.text('RECAPITULATIF DES NON-CONFORMITÉS', MARGIN_X + 5, yPosition + 4);
+      yPosition += 12;
+
+      data.nonConformes.forEach((item, index) => {
+        // Calculate heights
+        const constatHeight = calculateTextHeight(item.constat, (CONTENT_WIDTH - 40) / 2);
+        const actionHeight = calculateTextHeight(item.action, (CONTENT_WIDTH - 40) / 2);
+        const contentHeight = Math.max(constatHeight, actionHeight);
+        const totalHeight = contentHeight + 20;
+
+        // Check if we need a new page
+        if (checkAndAddNewPage(totalHeight)) {
+          yPosition = HEADER_HEIGHT + 10;
+        }
+
+        const startY = yPosition;
+
+        // Draw box with rounded corners (light orange background)
+        doc.setFillColor(255, 245, 235);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+
+        // Title with orange background
+        doc.setFillColor(255, 240, 225);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        doc.setTextColor(200, 100, 0);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`NC${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+
+        // Draw vertical separator
+        const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
+        doc.setDrawColor(220, 220, 220);
+        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+
+        // Render constat and action
+        const contentY = startY + 12;
+        renderWrappedText(
+          item.constat,
+          MARGIN_X + 12,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Constat:'
+        );
+
+        renderWrappedText(
+          item.action,
+          separatorX + 8,
+          contentY,
+          (CONTENT_WIDTH - 40) / 2,
+          'Action:'
+        );
+
+        yPosition = startY + totalHeight + 4;
       });
     }
 
@@ -851,7 +944,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
         const constatHeight = calculateTextHeight(item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
-        const totalHeight = contentHeight + 20; // Increased from 15 to 20 for more bottom padding
+        const totalHeight = contentHeight + 20;
 
         // Check if we need a new page
         if (checkAndAddNewPage(totalHeight)) {
@@ -894,7 +987,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
           'Action:'
         );
 
-        yPosition = startY + totalHeight + 4; // Increased from 3 to 4 for more space between items
+        yPosition = startY + totalHeight + 4;
       });
     }
 

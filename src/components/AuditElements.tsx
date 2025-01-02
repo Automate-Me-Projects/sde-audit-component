@@ -113,6 +113,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
           options={[
             'Conforme',
             'Non conforme',
+            'Non conformité majeure',
             'Observation',
             'Sans objet',
             'Pour information',
