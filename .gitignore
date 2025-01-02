@@ -12,3 +12,4 @@ retool-custom-component-manifest.json
 dist/*
 !dist/.placeholder
 .env
+pdf/*   

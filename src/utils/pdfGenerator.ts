@@ -263,6 +263,28 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   const titleHeight = 8;
   let currentY = yPosition;
 
+  // Calculate total height needed for title, regulatory, and first element
+  let totalMinHeight = titleHeight;
+  
+  // Add regulatory height if exists
+  const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
+  if (regulatory) {
+    const regulatoryText = String(regulatory.text || '');
+    const regulatoryLines = doc.splitTextToSize(regulatoryText, CONTENT_WIDTH - 8);
+    totalMinHeight += regulatoryLines.length * 3.5 + 6;
+  }
+
+  // Add height of first element
+  const firstElementHeight = calculateRowHeight(expandedElements[0], doc);
+  totalMinHeight += firstElementHeight;
+
+  // Check if we need a new page before starting the subcategory
+  if (currentY + totalMinHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+    doc.addPage();
+    addHeader(doc, building, audit);
+    currentY = HEADER_HEIGHT + 5;
+  }
+
   // SubCategory title with background
   doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, currentY - 3, CONTENT_WIDTH, titleHeight, 'F');
@@ -279,7 +301,6 @@ const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateE
   currentY += titleHeight;
 
   // Render regulatory if exists
-  const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
   if (regulatory) {
     const height = renderRegulatory(regulatory, doc, currentY, building, audit);
     currentY += height;
@@ -493,7 +514,6 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     categories,
     subCategories,
     regulatories,
-    infoTableRows,
     arretePrefectoralRows,
     exploitationRows,
     auditRows,
