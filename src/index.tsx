@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
-import { useS3Images } from './hooks/useS3Images';
+import ImageGallery from './components/ImageGallery';
+import { config } from './config';
 import type {
   Audit,
   Building,
@@ -13,7 +14,7 @@ import type {
   AuditElement,
   ExpandedElement,
   Regulatory,
-  Image,
+  S3ListResponse
 } from './types';
 import './output.css';
 import { generateTempId, createTimestamp, debounce } from './utils';
@@ -71,11 +72,29 @@ export const AuditFormComponent: FC = () => {
     description: 'The regulatories array',
   }) as unknown as [Regulatory[], (value: Regulatory[]) => void];
 
-  const { images, loading, error } = useS3Images(audit?.id || '');
+  const [s3Response, setS3Response] = Retool.useStateObject({
+    name: 'images',
+    description: 'S3 bucket list response',
+    defaultValue: { Contents: [], Name: '', KeyCount: 0, CommonPrefixes: [] }
+  }) as unknown as [S3ListResponse, (value: S3ListResponse) => void];
 
   useEffect(() => {
-    console.log('S3 Images state:', { loading, error, imagesCount: images.length });
-  }, [loading, error, images]);
+    console.log('S3 Images state:', { imagesCount: s3Response?.Contents?.length });
+  }, [s3Response]);
+
+  // Convert S3 response to [] for AuditForm
+  const processedImages = useMemo(() => {
+    if (!s3Response?.Contents?.length) return [];
+    
+    return s3Response.Contents.map(obj => ({
+      id: obj.Key,
+      name: obj.Key.split('_').pop() || obj.Key,
+      url: `${config.aws.s3Url}/${obj.Key}`,
+      key: obj.Key,
+      auditId: obj.Key.split('_')[0],
+      createdAt: obj.LastModified
+    }));
+  }, [s3Response]);
 
   // Event-related state
   const [changedAudit, setChangedAudit] = Retool.useStateObject({
@@ -396,7 +415,7 @@ export const AuditFormComponent: FC = () => {
     allTemplateElements,
     auditElements,
     regulatories,
-    images,
+    images: processedImages,
     onAuditChange: handleAuditChange,
     onElementAdd: handleAuditElementAdd,
     onElementChange: handleAuditElementChange,
@@ -414,7 +433,7 @@ export const AuditFormComponent: FC = () => {
     allTemplateElements,
     auditElements,
     regulatories,
-    images,
+    processedImages,
     handleAuditChange,
     handleAuditElementAdd,
     handleAuditElementChange,
@@ -427,6 +446,9 @@ export const AuditFormComponent: FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <AuditForm {...auditFormProps} />
+      <div className="mt-8">
+        <ImageGallery s3Response={s3Response} />
+      </div>
     </div>
   );
 };

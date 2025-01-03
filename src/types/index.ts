@@ -199,3 +199,19 @@ export interface ElementDropdownProps {
   templateVersion?: number;
   onSelect: (categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }
+
+export interface S3Object {
+  Key: string;
+  LastModified: string;
+  ETag: string;
+  ChecksumAlgorithm: string[];
+  Size: number;
+  StorageClass: string;
+}
+
+export interface S3ListResponse {
+  Contents: S3Object[];
+  Name: string;
+  KeyCount: number;
+  CommonPrefixes: any[];
+}
