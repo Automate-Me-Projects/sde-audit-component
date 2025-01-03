@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
+import { useS3Images } from './hooks/useS3Images';
 import type {
   Audit,
   Building,
@@ -23,6 +24,10 @@ export const AuditFormComponent: FC = () => {
     name: 'audit',
     description: 'The audit object',
   }) as unknown as [Audit, (value: Audit) => void];
+
+  useEffect(() => {
+    console.log('Current audit:', audit);
+  }, [audit]);
 
   const [building, setBuilding] = Retool.useStateObject({
     name: 'building',
@@ -66,10 +71,11 @@ export const AuditFormComponent: FC = () => {
     description: 'The regulatories array',
   }) as unknown as [Regulatory[], (value: Regulatory[]) => void];
 
-  const [images, setImages] = Retool.useStateArray({
-    name: 'images',
-    description: 'The images array',
-  }) as unknown as [Image[], (value: Image[]) => void];
+  const { images, loading, error } = useS3Images(audit?.id || '');
+
+  useEffect(() => {
+    console.log('S3 Images state:', { loading, error, imagesCount: images.length });
+  }, [loading, error, images]);
 
   // Event-related state
   const [changedAudit, setChangedAudit] = Retool.useStateObject({
@@ -418,5 +424,9 @@ export const AuditFormComponent: FC = () => {
     handleICPEBuildingChange
   ]);
 
-  return <AuditForm {...auditFormProps} />;
+  return (
+    <div className="p-4 max-w-7xl mx-auto">
+      <AuditForm {...auditFormProps} />
+    </div>
+  );
 };

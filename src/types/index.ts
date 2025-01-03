@@ -115,17 +115,11 @@ export interface Regulatory {
 
 export interface Image {
   id: string;
-  name?: string;
+  name: string;
   url: string;
-  isPublic: boolean;
-  type: string;
-  folderName: string;
+  key: string;
   auditId: string;
-  buildingId: string;
-  originalName: string;
-  sizeBytes: number;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface ICPETableComponentProps {
@@ -161,7 +155,6 @@ export interface AuditFormProps {
     positionByVersion: number[],
   ) => void;
   onICPEBuildingChange?: (refId: string, field: string, value: string) => void;
-  onDeleteImage?: (image: Image) => Promise<void>;
 }
 
 export interface AddElementModalProps {

@@ -183,16 +183,6 @@ const AuditFormComponent = React.memo(({
     }
   }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
 
-  const handleDeleteImage = async (image: Image) => {
-    try {
-      if (onDeleteImage) {
-        await onDeleteImage(image);
-      }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] p-4 z-50 shadow-md">
@@ -290,10 +280,7 @@ const AuditFormComponent = React.memo(({
           onElementDelete={handleElementDelete}
         />
 
-        <ImageGallery 
-          images={images} 
-          onDelete={handleDeleteImage}
-        />
+        <ImageGallery images={images} />
       </div>
 
       <AddElementModal
