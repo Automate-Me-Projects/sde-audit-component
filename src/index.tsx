@@ -75,7 +75,6 @@ export const AuditFormComponent: FC = () => {
   const [s3Response, setS3Response] = Retool.useStateObject({
     name: 'images',
     description: 'S3 bucket list response',
-    defaultValue: { Contents: [], Name: '', KeyCount: 0, CommonPrefixes: [] }
   }) as unknown as [S3ListResponse, (value: S3ListResponse) => void];
 
   useEffect(() => {

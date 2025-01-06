@@ -1,45 +1,40 @@
 import React, { useState, useMemo } from 'react';
-import { S3ListResponse, S3Object } from '../types';
 import { config } from '../config';
 
-interface ImageGalleryProps {
-  s3Response: S3ListResponse;
+interface S3Item {
+  name: string;
+  url: string;
 }
 
-const getImageUrl = (key: string): string => {
-  return `${config.aws.s3Url}/${key}`;
-};
+interface S3Response {
+  images: S3Item[];
+  files: S3Item[];
+}
 
-const getImageName = (key: string): string => {
-  return key.split('_').pop() || key;
-};
+interface ImageGalleryProps {
+  s3Response: S3Response;
+}
 
-const compareImageNames = (a: string, b: string): number => {
-  const aNum = parseInt(a.match(/\d+/)?.[0] || '0');
-  const bNum = parseInt(b.match(/\d+/)?.[0] || '0');
+const compareImageNames = (a: S3Item, b: S3Item): number => {
+  const aNum = parseInt(a.name.match(/\d+/)?.[0] || '0');
+  const bNum = parseInt(b.name.match(/\d+/)?.[0] || '0');
   return aNum - bNum;
 };
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
-  const [selectedImage, setSelectedImage] = useState<S3Object | null>(null);
+  const [selectedImage, setSelectedImage] = useState<S3Item | null>(null);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 
   const images = useMemo(() => {
-    if (!s3Response?.Contents?.length) return [];
-    return s3Response.Contents
-      .map(obj => ({
-        url: getImageUrl(obj.Key),
-        name: getImageName(obj.Key),
-        key: obj.Key
-      }))
-      .sort((a, b) => compareImageNames(a.name, b.name));
+    if (!s3Response?.images?.length) return [];
+    return [...s3Response.images].sort((a, b) => compareImageNames(a, b));
   }, [s3Response]);
 
   if (!images.length) {
     return null;
   }
 
-  const handleImageClick = (image: S3Object) => {
+  const handleImageClick = (image: S3Item) => {
     setSelectedImage(image);
   };
 
@@ -47,10 +42,10 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
     setSelectedImage(null);
   };
 
-  const handleImageLoad = (key: string) => {
+  const handleImageLoad = (url: string) => {
     setLoadedImages(prev => {
       const newSet = new Set(prev);
-      newSet.add(key);
+      newSet.add(url);
       return newSet;
     });
   };
@@ -66,21 +61,21 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
         }}
       >
         {images.map((image) => {
-          const isLoaded = loadedImages.has(image.key);
+          const isLoaded = loadedImages.has(image.url);
           return (
-            <div key={image.key} className="relative">
+            <div key={image.url} className="relative">
               <div 
                 className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden"
               >
                 <img
                   src={image.url}
-                  alt="Chargement..."
+                  alt={image.name}
                   className={`w-full h-full object-cover transition-all duration-300 ${
                     isLoaded ? 'opacity-100 cursor-pointer scale-100' : 'opacity-0 scale-95'
                   }`}
                   loading="lazy"
-                  onLoad={() => handleImageLoad(image.key)}
-                  onClick={() => isLoaded && handleImageClick({ Key: image.key } as S3Object)}
+                  onLoad={() => handleImageLoad(image.url)}
+                  onClick={() => isLoaded && handleImageClick(image)}
                 />
                 {!isLoaded && (
                   <div className="absolute inset-0 animate-pulse" />
@@ -108,8 +103,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
               &times;
             </button>
             <img 
-              src={getImageUrl(selectedImage.Key)} 
-              alt={getImageName(selectedImage.Key)} 
+              src={selectedImage.url}
+              alt={selectedImage.name}
               className="max-w-full h-auto"
             />
           </div>
