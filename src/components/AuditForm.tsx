@@ -8,7 +8,7 @@ import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import ImageGallery from './ImageGallery';
 import { generateTempId, formatDateToFrench, formatDate } from '../utils';
-import { generateAuditPDF } from '../utils/pdfGenerator';
+import { generateAuditPDF } from '../pdfGenerator';
 import type { AuditFormProps, ExpandedElement } from '../types';
 
 const AuditFormComponent = React.memo(({
