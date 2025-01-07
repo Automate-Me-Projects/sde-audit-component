@@ -22,6 +22,7 @@ const AuditFormComponent = React.memo(({
   auditElements,
   regulatories,
   images,
+  files,
   onAuditChange,
   onElementAdd,
   onElementChange,
@@ -145,14 +146,15 @@ const AuditFormComponent = React.memo(({
         auditRows,
         templateElements,
         auditElements,
-        images
+        images,
+        files
       });
       doc.save(`audit-${building.name}-${audit.year}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       // Add appropriate error handling here
     }
-  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images, files]);
 
   const handleVisualizePDF = useCallback(async () => {
     try {
@@ -169,7 +171,8 @@ const AuditFormComponent = React.memo(({
         auditRows,
         templateElements,
         auditElements,
-        images
+        images,
+        files
       });
       const pdfBlob = new Blob([doc.output('blob')], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(pdfBlob);
@@ -180,7 +183,7 @@ const AuditFormComponent = React.memo(({
       console.error('Error generating PDF:', error);
       // Add appropriate error handling here
     }
-  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images]);
+  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images, files]);
 
   return (
     <div className="min-h-screen bg-gray-50">

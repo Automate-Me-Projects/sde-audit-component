@@ -2,8 +2,6 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { type FC } from 'react';
 import { Retool } from '@tryretool/custom-component-support';
 import { AuditForm } from './components/AuditForm';
-import ImageGallery from './components/ImageGallery';
-import { config } from './config';
 import type {
   Audit,
   Building,
@@ -85,6 +83,12 @@ export const AuditFormComponent: FC = () => {
     if (!s3Response?.images?.length) return [];
   
     return s3Response.images
+  }, [s3Response]);
+
+  const processedFiles = useMemo(() => {
+    if (!s3Response?.files?.length) return [];
+  
+    return s3Response.files
   }, [s3Response]);
 
   // Event-related state
@@ -407,6 +411,7 @@ export const AuditFormComponent: FC = () => {
     auditElements,
     regulatories,
     images: processedImages,
+    files: processedFiles,
     onAuditChange: handleAuditChange,
     onElementAdd: handleAuditElementAdd,
     onElementChange: handleAuditElementChange,
@@ -425,6 +430,7 @@ export const AuditFormComponent: FC = () => {
     auditElements,
     regulatories,
     processedImages,
+    processedFiles,
     handleAuditChange,
     handleAuditElementAdd,
     handleAuditElementChange,

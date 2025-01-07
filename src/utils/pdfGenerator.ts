@@ -466,6 +466,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     templateElements,
     auditElements,
     images,
+    files
   } = options;
 
   const doc = new jsPDF({

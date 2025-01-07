@@ -129,6 +129,7 @@ export interface AuditFormProps {
   auditElements: AuditElement[];
   regulatories: Regulatory[];
   images: S3Item[];
+  files: S3Item[];
   onAuditChange?: (field: string, value: any) => void;
   onElementChange?: (elementId: string, field: string, value: any) => void;
   onElementDuplicate?: (element: ExpandedElement) => void;
@@ -221,4 +222,5 @@ export interface PDFGeneratorOptions {
   templateElements: TemplateElement[];
   auditElements: AuditElement[];
   images: S3Item[];
+  files: S3Item[];
 }

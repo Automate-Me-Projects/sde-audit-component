@@ -272,7 +272,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     const categorySubCategories = sortByPosition(
       subCategories.filter(sc => sc.categoryId === category._id),
       templateVersion
-    );
+    ) as SubCategory[];
 
     if (directElements.length === 0 && categorySubCategories.length === 0) return null;
 
@@ -333,7 +333,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
       const categorySubCategories = sortByPosition(
         (subCategories || []).filter(sc => sc.categoryId === category._id),
         templateVersion
-      );
+      ) as SubCategory[];
 
       return (
         <div key={category._id} className="w-full">
