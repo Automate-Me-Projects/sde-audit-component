@@ -9,7 +9,7 @@ import { AuditElements } from './AuditElements';
 import ImageGallery from './ImageGallery';
 import { generateTempId, formatDateToFrench, formatDate } from '../utils';
 import { generateAuditPDF } from '../utils/pdfGenerator';
-import type { AuditFormProps, ExpandedElement, Image } from '../types';
+import type { AuditFormProps, ExpandedElement } from '../types';
 
 const AuditFormComponent = React.memo(({
   audit,
@@ -29,7 +29,6 @@ const AuditFormComponent = React.memo(({
   onElementDuplicate,
   onTemplateElementAdd,
   onICPEBuildingChange,
-  onDeleteImage
 }: AuditFormProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 

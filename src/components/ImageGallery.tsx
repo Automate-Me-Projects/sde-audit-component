@@ -1,19 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { config } from '../config';
+import { S3Item, ImageGalleryProps } from '../types';
 
-interface S3Item {
-  name: string;
-  url: string;
-}
-
-interface S3Response {
-  images: S3Item[];
-  files: S3Item[];
-}
-
-interface ImageGalleryProps {
-  s3Response: S3Response;
-}
 
 const compareImageNames = (a: S3Item, b: S3Item): number => {
   const aNum = parseInt(a.name.match(/\d+/)?.[0] || '0');
@@ -21,22 +8,18 @@ const compareImageNames = (a: S3Item, b: S3Item): number => {
   return aNum - bNum;
 };
 
-const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
+const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
   const [selectedImage, setSelectedImage] = useState<S3Item | null>(null);
   const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
 
-  const images = useMemo(() => {
-    if (!s3Response?.images?.length) return [];
-    return [...s3Response.images].sort((a, b) => compareImageNames(a, b));
-  }, [s3Response]);
+  const sortedImages = useMemo(() => {
+    if (!images?.length) return [];
+    return images.sort((a, b) => compareImageNames(a, b));
+  }, [images]);
 
   if (!images.length) {
     return null;
   }
-
-  const handleImageClick = (image: S3Item) => {
-    setSelectedImage(image);
-  };
 
   const handleClose = () => {
     setSelectedImage(null);
@@ -60,7 +43,7 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
           gridAutoRows: '1fr'
         }}
       >
-        {images.map((image) => {
+        {sortedImages.map((image) => {
           const isLoaded = loadedImages.has(image.url);
           return (
             <div key={image.url} className="relative">
@@ -75,7 +58,6 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ s3Response }) => {
                   }`}
                   loading="lazy"
                   onLoad={() => handleImageLoad(image.url)}
-                  onClick={() => isLoaded && handleImageClick(image)}
                 />
                 {!isLoaded && (
                   <div className="absolute inset-0 animate-pulse" />

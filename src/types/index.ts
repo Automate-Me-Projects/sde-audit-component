@@ -113,15 +113,6 @@ export interface Regulatory {
   _id: string;
 }
 
-export interface Image {
-  id: string;
-  name: string;
-  url: string;
-  key: string;
-  auditId: string;
-  createdAt: string;
-}
-
 export interface ICPETableComponentProps {
   icpeTypes: IcpeType[];
   onCapacityChange: (id: string, value: string) => void;
@@ -137,7 +128,7 @@ export interface AuditFormProps {
   allTemplateElements: TemplateElement[];
   auditElements: AuditElement[];
   regulatories: Regulatory[];
-  images: Image[];
+  images: S3Item[];
   onAuditChange?: (field: string, value: any) => void;
   onElementChange?: (elementId: string, field: string, value: any) => void;
   onElementDuplicate?: (element: ExpandedElement) => void;
@@ -199,19 +190,35 @@ export interface ElementDropdownProps {
   templateVersion?: number;
   onSelect: (categoryId: string, subCategoryId: string | null, name: string, position: number) => void;
 }
-
-export interface S3Object {
-  Key: string;
-  LastModified: string;
-  ETag: string;
-  ChecksumAlgorithm: string[];
-  Size: number;
-  StorageClass: string;
+export interface S3Item {
+  name: string;
+  url: string;
+}
+export interface S3Response {
+  images: S3Item[];
+  files: S3Item[];
+}
+export interface ImageGalleryProps {
+  images: S3Item[];
 }
 
-export interface S3ListResponse {
-  Contents: S3Object[];
-  Name: string;
-  KeyCount: number;
-  CommonPrefixes: any[];
+export interface TableRow {
+  label: string;
+  value: string;
+}
+
+export interface PDFGeneratorOptions {
+  building: Building;
+  audit: Audit;
+  sections: Section[];
+  categories: Category[]; 
+  subCategories: SubCategory[];
+  regulatories: Regulatory[];
+  infoTableRows: TableRow[];
+  arretePrefectoralRows: TableRow[];
+  exploitationRows: TableRow[];
+  auditRows: TableRow[];
+  templateElements: TemplateElement[];
+  auditElements: AuditElement[];
+  images: S3Item[];
 }

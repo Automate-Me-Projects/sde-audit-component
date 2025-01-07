@@ -14,7 +14,7 @@ import type {
   AuditElement,
   ExpandedElement,
   Regulatory,
-  S3ListResponse
+  S3Response
 } from './types';
 import './output.css';
 import { generateTempId, createTimestamp, debounce } from './utils';
@@ -73,26 +73,18 @@ export const AuditFormComponent: FC = () => {
   }) as unknown as [Regulatory[], (value: Regulatory[]) => void];
 
   const [s3Response, setS3Response] = Retool.useStateObject({
-    name: 'images',
+    name: 'files',
     description: 'S3 bucket list response',
-  }) as unknown as [S3ListResponse, (value: S3ListResponse) => void];
+  }) as unknown as [S3Response, (value: S3Response) => void];
 
   useEffect(() => {
-    console.log('S3 Images state:', { imagesCount: s3Response?.Contents?.length });
+    console.log('S3 Images state:', { imagesCount: s3Response?.images?.length });
   }, [s3Response]);
 
-  // Convert S3 response to [] for AuditForm
   const processedImages = useMemo(() => {
-    if (!s3Response?.Contents?.length) return [];
-    
-    return s3Response.Contents.map(obj => ({
-      id: obj.Key,
-      name: obj.Key.split('_').pop() || obj.Key,
-      url: `${config.aws.s3Url}/${obj.Key}`,
-      key: obj.Key,
-      auditId: obj.Key.split('_')[0],
-      createdAt: obj.LastModified
-    }));
+    if (!s3Response?.images?.length) return [];
+  
+    return s3Response.images
   }, [s3Response]);
 
   // Event-related state
@@ -445,9 +437,6 @@ export const AuditFormComponent: FC = () => {
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <AuditForm {...auditFormProps} />
-      <div className="mt-8">
-        <ImageGallery s3Response={s3Response} />
-      </div>
     </div>
   );
 };

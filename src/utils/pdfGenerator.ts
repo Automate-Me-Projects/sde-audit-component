@@ -1,27 +1,6 @@
 import { jsPDF } from 'jspdf';
-import { Building, Audit, Section, Category, SubCategory, Regulatory, Image, TemplateElement, ExpandedElement, AuditElement } from '../types';
+import { Building, Audit, Category, SubCategory, Regulatory, TemplateElement, ExpandedElement, AuditElement, PDFGeneratorOptions, TableRow } from '../types';
 import { sortByPosition, sortSectionsByPosition, sortExpandedTemplateElements, formatDateToFrench, formatDate } from './index';
-
-interface TableRow {
-  label: string;
-  value: string;
-}
-
-interface PDFGeneratorOptions {
-  building: Building;
-  audit: Audit;
-  sections: Section[];
-  categories: Category[]; 
-  subCategories: SubCategory[];
-  regulatories: Regulatory[];
-  infoTableRows: TableRow[];
-  arretePrefectoralRows: TableRow[];
-  exploitationRows: TableRow[];
-  auditRows: TableRow[];
-  templateElements: TemplateElement[];
-  auditElements: AuditElement[];
-  images: Image[];
-}
 
 const MARGIN_X = 15;
 const PAGE_WIDTH = 210; // A4 width in mm
@@ -471,39 +450,6 @@ const renderCategory = (audit: Audit, building: Building, category: Category, te
   }
 
   return yPosition + 4;
-};
-
-const loadImage = async (imageData: string): Promise<string> => {
-  try {
-    // If it's already a base64 string, return it
-    if (imageData.startsWith('data:image')) {
-      return imageData;
-    }
-
-    // If it's a URL, try to load it
-    const response = await fetch(imageData);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result;
-        if (typeof result === 'string') {
-          resolve(result);
-        } else {
-          reject(new Error('Failed to convert image to base64'));
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error('Error loading image:', error);
-    return ''; // Return empty string if image loading fails
-  }
 };
 
 const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> => {
@@ -1088,7 +1034,7 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
     doc.text('ANNEXES', MARGIN_X, yPosition);
     yPosition += 15;
 
-    const imagesPerRow = 2;
+    const imagesPerRow = 4;
     const imageWidth = (CONTENT_WIDTH) / imagesPerRow;
     const imageHeight = imageWidth * 0.75; // 4:3 aspect ratio
     let currentImageInRow = 0;
@@ -1104,33 +1050,33 @@ const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> =>
       const xPosition = MARGIN_X + (currentImageInRow * (imageWidth + 10));
 
       try {
-        const imageData = await loadImage(image.url);
-        if (imageData) {
-          // Add image to PDF
-          doc.addImage(
-            imageData,
-            'JPEG',
-            xPosition,
-            yPosition,
-            imageWidth,
-            imageHeight,
-            undefined,
-            'FAST'
-          );
+        const img = new Image();
+        img.src = image.url;
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            try {
+              // Add image to PDF
+              doc.addImage({ 
+                imageData: img, 
+                x: xPosition, 
+                y: yPosition,
+                width: imageWidth,
+                height: imageHeight,
+                compression: 'FAST'
+              });
 
-          // Add image name below
-          doc.setFontSize(8);
-          doc.setTextColor(0, 0, 0);
-          const nameLines = doc.splitTextToSize(String(image.name || ''), imageWidth);
-          doc.text(nameLines, xPosition, yPosition + imageHeight + 5);
-        } else {
-          // Add placeholder for failed image
-          doc.setFillColor(240, 240, 240);
-          doc.rect(xPosition, yPosition, imageWidth, imageHeight, 'F');
-          doc.setFontSize(8);
-          doc.setTextColor(100, 100, 100);
-          doc.text('Image non disponible', xPosition + 5, yPosition + imageHeight / 2);
-        }
+              // Add image name below
+              doc.setFontSize(8);
+              doc.setTextColor(0, 0, 0);
+              const nameLines = doc.splitTextToSize(String(image.name || ''), imageWidth);
+              doc.text(nameLines, xPosition, yPosition + imageHeight + 5);
+              resolve(null);
+            } catch (error) {
+              reject(error);
+            }
+          };
+          img.onerror = reject;
+        });
 
         currentImageInRow++;
         if (currentImageInRow === imagesPerRow) {
