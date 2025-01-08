@@ -110,18 +110,25 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
 
 export const expandTemplateElements = (elements: TemplateElement[], auditElements: AuditElement[]): ExpandedElement[] => {
   const expandedElements: ExpandedElement[] = [];
+  const processedAuditElements = new Set<string>(); // Track processed audit elements by ID
 
   elements.forEach(templateElement => {
-    const auditElement = auditElements.find(ae => ae.templateElementId === templateElement._id);
+    // Find all audit elements that match this template element
+    const matchingAuditElements = auditElements.filter(ae => ae.templateElementId === templateElement._id);
     
-    // Skip if both constat and status are empty/null
-    if (!auditElement?.constat?.trim() && !auditElement?.status?.trim()) {
-      return;
-    }
+    // Create an expanded element for each matching audit element
+    matchingAuditElements.forEach(auditElement => {
+      // Skip if we've already processed this audit element or if constat and status are empty
+      if (processedAuditElements.has(auditElement._id) || 
+          (!auditElement?.constat?.trim() && !auditElement?.status?.trim())) {
+        return;
+      }
 
-    expandedElements.push({
-      ...templateElement,
-      auditElement
+      processedAuditElements.add(auditElement._id);
+      expandedElements.push({
+        ...templateElement,
+        auditElement
+      });
     });
   });
 
