@@ -19,23 +19,23 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   const titleHeight = 8;
   let currentY = yPosition;
 
-  // Calculate total height needed for title, regulatory, and first element
-  let totalMinHeight = titleHeight;
+  // Calculate minimum required height for the set (title + regulatory + first row)
+  let minRequiredHeight = titleHeight;
   
   // Add regulatory height if exists
   const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
   if (regulatory) {
     const regulatoryText = String(regulatory.text || '');
     const regulatoryLines = doc.splitTextToSize(regulatoryText, CONTENT_WIDTH - 8);
-    totalMinHeight += regulatoryLines.length * 3.5 + 6;
+    minRequiredHeight += regulatoryLines.length * 3.5 + 3;
   }
 
-  // Add height of first element
+  // Add height of first element (mandatory)
   const firstElementHeight = calculateRowHeight(expandedElements[0], doc);
-  totalMinHeight += firstElementHeight;
+  minRequiredHeight += firstElementHeight;
 
-  // Check if we need a new page before starting the subcategory
-  if (currentY + totalMinHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+  // Check if minimum required set can fit on current page
+  if (currentY + minRequiredHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
     addHeader(doc, building, audit);
     currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
@@ -71,13 +71,17 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   // Calculate heights for all rows
   const rowHeights = expandedElements.map(element => calculateRowHeight(element, doc));
   
-  // Render rows in batches that fit on the page
-  let currentElementIndex = 0;
+  // Always render first row as it's part of the minimum required set
+  const firstRowHeight = renderAuditElementRow(expandedElements[0], currentY, doc);
+  currentY += firstRowHeight;
+  
+  // Continue with remaining rows
+  let currentElementIndex = 1; // Start from second element
   while (currentElementIndex < expandedElements.length) {
     let batchHeight = 0;
     let batchSize = 0;
     
-    // Calculate how many rows can fit on current page
+    // Calculate how many additional rows can fit on current page
     for (let i = currentElementIndex; i < expandedElements.length; i++) {
       const nextRowHeight = rowHeights[i];
       if (currentY + batchHeight + nextRowHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
@@ -87,7 +91,7 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
       batchSize++;
     }
 
-    // If no rows can fit on current page, start a new page
+    // If no more rows can fit, start a new page
     if (batchSize === 0) {
       doc.addPage();
       addHeader(doc, building, audit);
@@ -133,25 +137,48 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
 
   const titleHeight = 8;
 
-  // For each subcategory, calculate minimum height needed for category title + subcategory title + first row
-  let minHeightNeeded = titleHeight; // Category title
+  // Calculate minimum required height for the set (category title + regulatory + first row/subcategory)
+  let minRequiredHeight = titleHeight;
 
   // Add regulatory height if exists
+  let categoryRegulatory = null;
   if (sectionId) {
-    const regulatory = regulatories.find(
+    categoryRegulatory = regulatories.find(
       r => r.sectionId === sectionId && 
            r.categoryId === category._id && 
            (!r.subCategoryId || r.subCategoryId === "null" || r.subCategoryId === "")
     );
-    if (regulatory) {
-      const text = String(regulatory.text || '');
+    if (categoryRegulatory) {
+      const text = String(categoryRegulatory.text || '');
       const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 8);
-      minHeightNeeded += lines.length * 3.5 + 6;
+      minRequiredHeight += lines.length * 3.5 + 3;
     }
   }
 
-  // Check if we need a page break
-  if (yPosition + minHeightNeeded > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+  // Add height of first element or subcategory
+  if (hasNonEmptySubCategories) {
+    const firstSubCategory = categorySubCategories[0];
+    const subCategoryElements = getTemplateElementsForSubCategory(firstSubCategory, templateElements, audit, auditElements);
+    const expandedSubCategoryElements = expandTemplateElements(subCategoryElements, auditElements);
+    
+    minRequiredHeight += titleHeight; // Subcategory title
+    
+    const subCategoryRegulatory = regulatories.find(r => r.subCategoryId === firstSubCategory._id);
+    if (subCategoryRegulatory) {
+      const text = String(subCategoryRegulatory.text || '');
+      const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 8);
+      minRequiredHeight += lines.length * 3.5 + 3;
+    }
+    
+    if (expandedSubCategoryElements.length > 0) {
+      minRequiredHeight += calculateRowHeight(expandedSubCategoryElements[0], doc);
+    }
+  } else if (expandedDirectElements.length > 0) {
+    minRequiredHeight += calculateRowHeight(expandedDirectElements[0], doc);
+  }
+
+  // Check if minimum required set can fit on current page
+  if (yPosition + minRequiredHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
     addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
@@ -174,16 +201,9 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
   yPosition += titleHeight;
 
   // Render regulatory if exists
-  if (sectionId) {
-    const regulatory = regulatories.find(
-      r => r.sectionId === sectionId && 
-           r.categoryId === category._id && 
-           (!r.subCategoryId || r.subCategoryId === "null" || r.subCategoryId === "")
-    );
-    if (regulatory) {
-      const height = renderRegulatory(regulatory, doc, yPosition, building, audit);
-      yPosition += height;
-    }
+  if (categoryRegulatory) {
+    const height = renderRegulatory(categoryRegulatory, doc, yPosition, building, audit);
+    yPosition += height;
   }
 
   // Render subcategories
@@ -196,14 +216,19 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
 
   // Render direct elements if any
   if (expandedDirectElements.length > 0) {
-    let currentElementIndex = 0;
+    // Always render first row as it's part of the minimum required set
+    const firstRowHeight = renderAuditElementRow(expandedDirectElements[0], yPosition, doc);
+    yPosition += firstRowHeight;
+    
+    // Continue with remaining rows
+    let currentElementIndex = 1;
     const rowHeights = expandedDirectElements.map(element => calculateRowHeight(element, doc));
 
     while (currentElementIndex < expandedDirectElements.length) {
       let batchHeight = 0;
       let batchSize = 0;
       
-      // Calculate how many rows can fit on current page
+      // Calculate how many additional rows can fit on current page
       for (let i = currentElementIndex; i < expandedDirectElements.length; i++) {
         const nextRowHeight = rowHeights[i];
         if (yPosition + batchHeight + nextRowHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
@@ -213,7 +238,7 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
         batchSize++;
       }
 
-      // If no rows can fit on current page, start a new page
+      // If no more rows can fit, start a new page
       if (batchSize === 0) {
         doc.addPage();
         addHeader(doc, building, audit);
@@ -232,5 +257,5 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
     }
   }
 
-  return yPosition + 4;
+  return yPosition;
 };

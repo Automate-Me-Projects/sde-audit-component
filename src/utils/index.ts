@@ -63,8 +63,8 @@ export const formatDate = (date: string | null | undefined): string => {
   if (!date) return '';
   const dateObject = new Date(date);
   const months = [
-    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
   ];
   return `${months[dateObject.getMonth()]} ${dateObject.getFullYear()}`;
 };
