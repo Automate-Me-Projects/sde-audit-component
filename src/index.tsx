@@ -363,34 +363,38 @@ export const AuditFormComponent: FC = () => {
     triggerEvent('templateElementAdd', { element: retoolData });
   }, [audit.id, audit.templateVersion, templateElements, auditElements, setTemplateElements, setAuditElements, triggerEvent]);
 
-  const debouncedICPEBuildingChange = useCallback(
-    debounce((refId: string, field: string, value: string) => {
-      const currentBuilding = building;
-      if (!currentBuilding?.icpeTypes) {
-        console.error('Building or icpeTypes is undefined');
-        return;
+  const debouncedBuildingChange = useCallback(
+    debounce((refId: string | null, field: string, value: string) => {
+      let updatedBuilding: Building;
+      
+      if (refId === null) {
+        // Direct building field update
+        updatedBuilding = {
+          ...building,
+          [field]: value
+        };
+      } else {
+        // ICPE type update
+        if (!building.icpeTypes) {
+          console.error('icpeTypes is undefined in debouncedBuildingChange');
+          return;
+        }
+        updatedBuilding = {
+          ...building,
+          icpeTypes: building.icpeTypes.map(icpe => 
+            icpe.refId === refId ? { ...icpe, [field]: value } : icpe
+          )
+        };
       }
-
-      const updatedBuilding: Building = {
-        ...currentBuilding,
-        icpeTypes: currentBuilding.icpeTypes.map(icpe => 
-          icpe.refId === refId ? { ...icpe, [field]: value } : icpe
-        )
-      };
-
-      triggerEvent('buildingChange', { buildingId: currentBuilding._id, refId, field, value });
       setBuilding(updatedBuilding);
-    }, 1000),
-    [building, triggerEvent]
+      triggerEvent('buildingChange', { buildingId: building._id, refId, field, value });
+    }, 500),
+    [building, setBuilding, triggerEvent]
   );
 
-  const handleICPEBuildingChange = useCallback((refId: string, field: string, value: string) => {
-    if (!building?.icpeTypes) {
-      console.error('Building or icpeTypes is undefined in handleICPEBuildingChange');
-      return;
-    }
-    debouncedICPEBuildingChange(refId, field, value);
-  }, [building?.icpeTypes, debouncedICPEBuildingChange]);
+  const handleBuildingChange = useCallback((refId: string | null, field: string, value: string) => {
+    debouncedBuildingChange(refId, field, value);
+  }, [building, debouncedBuildingChange]);
 
   // Store raw template elements when they come from Retool
   useEffect(() => {
@@ -418,7 +422,7 @@ export const AuditFormComponent: FC = () => {
     onElementDelete: handleAuditElementDelete,
     onElementDuplicate: handleElementDuplicate,
     onTemplateElementAdd: handleTemplateElementAdd,
-    onICPEBuildingChange: handleICPEBuildingChange
+    onBuildingChange: handleBuildingChange
   }), [
     audit,
     building,
@@ -437,7 +441,7 @@ export const AuditFormComponent: FC = () => {
     handleAuditElementDelete,
     handleElementDuplicate,
     handleTemplateElementAdd,
-    handleICPEBuildingChange
+    handleBuildingChange
   ]);
 
   return (

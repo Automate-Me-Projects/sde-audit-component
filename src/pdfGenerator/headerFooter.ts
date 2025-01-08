@@ -1,6 +1,5 @@
 import { jsPDF } from 'jspdf';
 import { Building, Audit } from '../types';
-import { formatDateToFrench } from '../utils/index';
 import { MARGIN_X, PAGE_WIDTH, HEADER_HEIGHT, FOOTER_HEIGHT, HEADER_BG_COLOR } from './constants';
 
 export const addHeader = (doc: jsPDF, building: Building, audit: Audit) => {
@@ -14,7 +13,7 @@ export const addHeader = (doc: jsPDF, building: Building, audit: Audit) => {
   doc.setTextColor(255, 255, 255);
 
   // Calculate vertical center
-  const text = `Audit de conformité réglementaire ${building?.name ?? ''} - ${formatDateToFrench(audit?.visitDate ?? '')}`;
+  const text = `Audit de suivi ICPE - ${building?.name ?? ''} - ${building?.portfolio ?? ''} - ${audit?.year}`;
   const textHeight = doc.getTextDimensions(text).h;
   const verticalCenter = (HEADER_HEIGHT + textHeight) / 2;
 

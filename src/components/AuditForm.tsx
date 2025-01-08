@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Plus, Eye, ArrowDownToLine } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import { ElementDropdown } from './ElementDropdown';
@@ -29,9 +29,26 @@ const AuditFormComponent = React.memo(({
   onElementDelete,
   onElementDuplicate,
   onTemplateElementAdd,
-  onICPEBuildingChange,
+  onBuildingChange,
 }: AuditFormProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [localIcpeRegulations, setLocalIcpeRegulations] = useState(building?.icpeRegulations ?? '');
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.max(200, textarea.scrollHeight)}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    setLocalIcpeRegulations(building?.icpeRegulations ?? '');
+    // Adjust height after content is updated
+    setTimeout(adjustTextareaHeight, 0);
+  }, [building?.icpeRegulations, adjustTextareaHeight]);
 
   const handleAuditDataChange = useCallback((field: string, value: string) => {
     if (onAuditChange) {
@@ -39,7 +56,20 @@ const AuditFormComponent = React.memo(({
     }
   }, [onAuditChange]);
 
-  // Memoize complex data structures
+  const handleIcpeRegulationsChange = useCallback((value: string) => {
+    setLocalIcpeRegulations(value);
+    // Adjust height when content changes
+    setTimeout(adjustTextareaHeight, 0);
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    timeoutRef.current = setTimeout(() => {
+      onBuildingChange?.(null, 'icpeRegulations', value);
+    }, 1000);
+  }, [onBuildingChange, adjustTextareaHeight]);
+
   const statusOptions = useMemo(() => [
     'En cours de rédaction',
     'Fini',
@@ -237,20 +267,25 @@ const AuditFormComponent = React.memo(({
         <InfoTable rows={infoTableRows} />
 
         <InfoTable
-          title="Informations relatives à l'arrêté préfectoral"
+          title="INFORMATIONS RELATIVES À L'ARRÊTÉ PRÉFECTORAL"
           rows={arretePrefectoralRows}
         />
 
         <InfoTable
-          title="Informations relatives à l'exploitation"
+          title="INFORMATIONS RELATIVES À L'EXPLOITATION"
           rows={exploitationRows}
         />
 
         <div className="bg-white p-4 rounded-lg shadow">
           <h3 className="text-[rgb(0,106,60)] font-medium mb-2">
-            Réglementation ICPE applicable
+          DESCRIPTIF DU DÉROULÉ DE L’AUDIT
           </h3>
-          <div className="whitespace-pre-line">{building?.icpeRegulations ?? ''}</div>
+          <textarea 
+            ref={textareaRef}
+            className="w-full whitespace-pre-line min-h-[200px] p-2 border rounded"
+            value={localIcpeRegulations}
+            onChange={(e) => handleIcpeRegulationsChange(e.target.value)}
+          />
         </div>
 
         <InfoTable rows={auditRows} />
@@ -260,10 +295,10 @@ const AuditFormComponent = React.memo(({
         <ICPETable
           icpeTypes={building?.icpeTypes ?? []}
           onCapacityChange={useCallback((id: string, value: string) => {
-            if (onICPEBuildingChange) {
-              onICPEBuildingChange(id, 'capacity', value);
+            if (onBuildingChange) {
+              onBuildingChange(id, 'capacity', value);
             }
-          }, [onICPEBuildingChange])}
+          }, [onBuildingChange])}
         />
 
         <div className="border-t-2 border-[rgb(0,106,60)]" />

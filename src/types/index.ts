@@ -146,7 +146,7 @@ export interface AuditFormProps {
     categoryId: string,
     positionByVersion: number[],
   ) => void;
-  onICPEBuildingChange?: (refId: string, field: string, value: string) => void;
+  onBuildingChange?: (refId: string | null, field: string, value: string) => void;
 }
 
 export interface AddElementModalProps {

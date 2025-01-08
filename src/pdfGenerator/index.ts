@@ -90,6 +90,92 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
 
   // Visit info
   yPosition = addInfoTable(doc, auditRows, 'DATE DE LA VISITE ET RÉDACTION DU RAPPORT', yPosition);
+  yPosition += 10;
+
+  // Audit description
+  const title = 'DESCRIPTIF DU DÉROULÉ DE L\'AUDIT';
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold'); // Ensure title font is bold
+  const titleWidth = doc.getTextWidth(title);
+  
+  const padding = 5; // Padding between border and content
+  const textPadding = 8; // Padding for text within grey area
+  const sectionWidth = CONTENT_WIDTH - (padding * 2);
+  const borderWidth = 0.5; // Thicker border
+  
+  // Calculate content height and check if we need a page break before starting
+  const descriptionText = building?.icpeRegulations || '';
+  const descriptionLines = doc.splitTextToSize(descriptionText, sectionWidth - (textPadding * 2));
+  const lineHeight = 5;
+  const contentHeight = (descriptionLines.length * lineHeight) + (textPadding * 2);
+  const titleHeight = 8;
+  const totalHeight = contentHeight + titleHeight;
+  
+  // Check if we need a page break before starting
+  if (yPosition + totalHeight + (padding * 2) > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
+    doc.addPage();
+    addHeader(doc, building, audit);
+    yPosition = HEADER_HEIGHT + 5;
+  }
+  
+  // Draw black border around entire section
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(borderWidth);
+  doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, totalHeight + (padding * 2), 'S');
+  
+  // Draw inner content (title + grey background) with padding from border
+  const innerX = MARGIN_X + padding;
+  const innerY = yPosition - 5 + padding;
+  
+  // Title with green background
+  doc.setFillColor(0, 106, 60);
+  doc.rect(innerX, innerY, sectionWidth, titleHeight, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); // Ensure title is bold
+  const titleX = innerX + (sectionWidth - titleWidth) / 2;
+  doc.text(title, titleX, innerY + 5);
+  
+  // Content area with grey background
+  doc.setFillColor(240, 240, 240);
+  doc.rect(innerX, innerY + titleHeight, sectionWidth, contentHeight, 'F');
+  
+  // Add text content
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0); // Force black color
+  let textY = innerY + titleHeight + textPadding;
+  
+  descriptionLines.forEach((line: string) => {
+    // Check if we're too close to the footer with extra margin
+    if (textY > doc.internal.pageSize.height - FOOTER_HEIGHT - 20) {
+      // Calculate remaining height before creating new page
+      const currentIndex = descriptionLines.indexOf(line);
+      const remainingLines = descriptionLines.slice(currentIndex);
+      const remainingHeight = (remainingLines.length * lineHeight) + (textPadding * 2);
+      
+      // Only proceed with new page if we actually have content to write
+      if (remainingLines.length > 0) {
+        doc.addPage();
+        addHeader(doc, building, audit);
+        const newY = HEADER_HEIGHT + 5;
+        
+        // Draw border
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(borderWidth); // Maintain border thickness
+        doc.rect(MARGIN_X, newY, CONTENT_WIDTH, remainingHeight + (padding * 2), 'S');
+        
+        // Draw grey background
+        doc.setFillColor(240, 240, 240);
+        doc.rect(MARGIN_X + padding, newY + padding, sectionWidth, remainingHeight, 'F');
+        
+        textY = newY + padding + textPadding;
+        doc.setTextColor(0, 0, 0); // Ensure black color after page break
+      }
+    }
+    doc.text(line, innerX + textPadding, textY);
+    textY += lineHeight;
+  });
+
+  yPosition += totalHeight + (padding * 2) + 5;
 
   // Page 4: ICPE Table
   doc.addPage();
