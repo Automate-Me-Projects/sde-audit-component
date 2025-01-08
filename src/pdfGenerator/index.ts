@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { PDFGeneratorOptions } from '../types';
 import { sortByPosition, sortSectionsByPosition, formatDate } from '../utils/index';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BG_COLOR, GREEN_BG_COLOR } from './constants';
+import { MARGIN_X, PAGE_WIDTH, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, HEADER_BG_COLOR, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
 import { addHeader, addFooter } from './headerFooter';
 import { addInfoTable } from './tables';
 import { renderCategory } from './categories';
@@ -76,7 +76,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Page 3: Exploitation & Visit info
   doc.addPage();
   addHeader(doc, building, audit);
-  let yPosition = HEADER_HEIGHT + 5;
+  let yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   doc.setFontSize(12);
   doc.setTextColor(0, 106, 60);
   doc.setFont('helvetica', 'bold');
@@ -115,7 +115,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   if (yPosition + totalHeight + (padding * 2) > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
     doc.addPage();
     addHeader(doc, building, audit);
-    yPosition = HEADER_HEIGHT + 5;
+    yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   }
   
   // Draw black border around entire section
@@ -156,7 +156,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       if (remainingLines.length > 0) {
         doc.addPage();
         addHeader(doc, building, audit);
-        const newY = HEADER_HEIGHT + 5;
+        const newY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         
         // Draw border
         doc.setDrawColor(0, 0, 0);
@@ -180,7 +180,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Page 4: ICPE Table
   doc.addPage();
   addHeader(doc, building, audit);
-  yPosition = HEADER_HEIGHT + 5;
+  yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   doc.setFontSize(12);
   doc.setTextColor(0, 106, 60);
   doc.setFont('helvetica', 'bold');
@@ -237,7 +237,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT) {
       doc.addPage();
       addHeader(doc, building, audit);
-      yPosition = HEADER_HEIGHT + 5;
+      yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
     }
 
     xPos = MARGIN_X;
@@ -290,7 +290,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Page 5: Audit Elements section
   doc.addPage();
   addHeader(doc, building, audit);
-  yPosition = HEADER_HEIGHT + 5;
+  yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
 
   if (audit.templateVersion === 2) {
     // Render by sections
@@ -306,7 +306,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       if (index > 0) {
         doc.addPage();
         addHeader(doc, building, audit);
-        yPosition = HEADER_HEIGHT + 5;
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
       }
 
       // Section title
@@ -343,7 +343,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   if (images && images.length > 0) {
     doc.addPage();
     addHeader(doc, building, audit);
-    yPosition = HEADER_HEIGHT + 5;
+    yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
     doc.setFontSize(12);
     doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
     doc.text('ANNEXES', MARGIN_X, yPosition);
@@ -358,7 +358,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       if (yPosition + imageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
         doc.addPage();
         addHeader(doc, building, audit);
-        yPosition = HEADER_HEIGHT + 5;
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         currentImageInRow = 0;
       }
 

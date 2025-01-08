@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { Category, SubCategory, Building, Audit, TemplateElement, AuditElement, Regulatory } from '../types';
 import { sortByPosition } from '../utils/index';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
 import { addHeader } from './headerFooter';
 import { renderRegulatory } from './regulatory';
 import { calculateRowHeight, renderAuditElementRow, getTemplateElementsForSubCategory, getDirectTemplateElements, expandTemplateElements } from './elements';
@@ -38,21 +38,27 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   if (currentY + totalMinHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
     addHeader(doc, building, audit);
-    currentY = HEADER_HEIGHT + 5;
+    currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   }
 
   // SubCategory title with background
   doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
-  doc.rect(MARGIN_X, currentY - 3, CONTENT_WIDTH, titleHeight, 'F');
+  doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, titleHeight, 'F');
+  
+  // Add thin border around title
+  doc.setDrawColor(128, 128, 128);
+  doc.setLineWidth(0.1);
+  doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, titleHeight, 'D');
   
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
   
   // Center text horizontally and vertically
   const text = String(subCategory.name || '');
   const textWidth = doc.getTextWidth(text);
   const xPos = MARGIN_X + (CONTENT_WIDTH - textWidth) / 2;
-  doc.text(text, xPos, currentY + 2);
+  doc.text(text, xPos, currentY + 5);
   
   currentY += titleHeight;
 
@@ -85,7 +91,7 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
     if (batchSize === 0) {
       doc.addPage();
       addHeader(doc, building, audit);
-      currentY = HEADER_HEIGHT + 5;
+      currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
       continue;
     }
 
@@ -148,23 +154,23 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
   if (yPosition + minHeightNeeded > doc.internal.pageSize.height - FOOTER_HEIGHT) {
     doc.addPage();
     addHeader(doc, building, audit);
-    yPosition = HEADER_HEIGHT + 5;
+    yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   }
 
-  // Category title
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  // Category title with background
   doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
-  doc.rect(MARGIN_X, yPosition - 3, CONTENT_WIDTH, titleHeight, 'F');
-  doc.setTextColor(255, 255, 255);
+  doc.rect(MARGIN_X, yPosition, CONTENT_WIDTH, titleHeight, 'F');
+  
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
   
   // Center text horizontally and vertically
   const text = String(category.name || '');
   const textWidth = doc.getTextWidth(text);
   const xPos = MARGIN_X + (CONTENT_WIDTH - textWidth) / 2;
-  doc.text(text, xPos, yPosition + 2);
+  doc.text(text, xPos, yPosition + 5);
   
-  doc.setFont('helvetica', 'normal');
   yPosition += titleHeight;
 
   // Render regulatory if exists
@@ -211,7 +217,7 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
       if (batchSize === 0) {
         doc.addPage();
         addHeader(doc, building, audit);
-        yPosition = HEADER_HEIGHT + 5;
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         continue;
       }
 

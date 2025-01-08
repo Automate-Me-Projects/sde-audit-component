@@ -3,9 +3,22 @@ import { Audit, TemplateElement, AuditElement, ExpandedElement, SubCategory } fr
 import { sortExpandedTemplateElements } from '../utils/index';
 import { MARGIN_X, CONTENT_WIDTH } from './constants';
 
+const getStatusColor = (status: string): [number, number, number] => {
+  switch (status) {
+    case 'Conforme':
+      return [34, 197, 94]; // green-500
+    case 'Non conforme':
+      return [249, 115, 22]; // orange-500 (sde-orange)
+    case 'Non conformité majeure':
+      return [239, 68, 68]; // red-500
+    default:
+      return [128, 128, 128]; // gray-300
+  }
+};
+
 export const calculateRowHeight = (expandedElement: ExpandedElement, doc: jsPDF): number => {
-  const nameWidth = CONTENT_WIDTH * 0.35;
-  const constatWidth = CONTENT_WIDTH * 0.50;
+  const nameWidth = CONTENT_WIDTH * 0.20; // Reduced from 0.25
+  const constatWidth = CONTENT_WIDTH * 0.65; // Increased from 0.60
   const statusWidth = CONTENT_WIDTH * 0.15;
 
   const name = String(expandedElement.name || '').trim();
@@ -17,7 +30,7 @@ export const calculateRowHeight = (expandedElement: ExpandedElement, doc: jsPDF)
   const statusLines = doc.splitTextToSize(status, statusWidth - 4);
 
   const maxLines = Math.max(nameLines.length, constatLines.length, statusLines.length);
-  return maxLines * 4 + 6; // lineHeight = 4, padding = 6
+  return maxLines * 4 + 8; // lineHeight = 4, padding = 8
 };
 
 export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: number, doc: jsPDF): number => {
@@ -26,9 +39,9 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
 
-  // Adjust column widths: name (35%), constat (50%), status (15%)
-  const nameWidth = CONTENT_WIDTH * 0.35;
-  const constatWidth = CONTENT_WIDTH * 0.50;
+  // Adjust column widths: name (20%), constat (65%), status (15%)
+  const nameWidth = CONTENT_WIDTH * 0.20;
+  const constatWidth = CONTENT_WIDTH * 0.65;
   const statusWidth = CONTENT_WIDTH * 0.15;
   const xPositions = [
     MARGIN_X,
@@ -46,30 +59,51 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
 
   const maxLines = Math.max(nameLines.length, constatLines.length, statusLines.length);
   const lineHeight = 4;
-  const padding = 6;
+  const padding = 8; // Increased from 6 to 8 for more top padding
   const rowHeight = maxLines * lineHeight + padding;
 
-  // Draw backgrounds (white) and borders
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(200, 200, 200);
+  // Draw cell borders (thinner, 0.1 instead of default)
+  doc.setDrawColor(128, 128, 128);
+  doc.setLineWidth(0.1);
   
-  // Draw cells with no gaps between them
-  doc.rect(xPositions[0], startY - 3, nameWidth, rowHeight, 'FD');
-  doc.rect(xPositions[1], startY - 3, constatWidth, rowHeight, 'FD');
-  doc.rect(xPositions[2], startY - 3, statusWidth, rowHeight, 'FD');
+  // Draw vertical lines
+  xPositions.forEach(x => {
+    doc.line(x, startY, x, startY + rowHeight);
+  });
+  doc.line(MARGIN_X + CONTENT_WIDTH, startY, MARGIN_X + CONTENT_WIDTH, startY + rowHeight);
+  
+  // Draw horizontal lines
+  doc.line(MARGIN_X, startY, MARGIN_X + CONTENT_WIDTH, startY);
+  doc.line(MARGIN_X, startY + rowHeight, MARGIN_X + CONTENT_WIDTH, startY + rowHeight);
 
-  // Reset text color to black before rendering text
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  // Center text vertically with more top padding
+  const textY = startY + padding/1.5; // Adjusted to move text down a bit more
+
+  // Name column (centered)
+  nameLines.forEach((line: string, i: number) => {
+    const xCenter = MARGIN_X + nameWidth/2;
+    const lineWidth = doc.getTextWidth(line);
+    doc.text(line, xCenter - lineWidth/2, textY + (i * lineHeight));
+  });
+
+  // Constat column (left-aligned)
+  constatLines.forEach((line: string, i: number) => {
+    doc.text(line, xPositions[1] + 2, textY + (i * lineHeight));
+  });
+
+  // Status column (centered and colored)
+  const statusColor = getStatusColor(status);
+  doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+  doc.setFont('helvetica', 'bold');
+  statusLines.forEach((line: string, i: number) => {
+    const xCenter = xPositions[2] + statusWidth/2;
+    const lineWidth = doc.getTextWidth(line);
+    doc.text(line, xCenter - lineWidth/2, textY + (i * lineHeight));
+  });
+
+  // Reset text color
   doc.setTextColor(0, 0, 0);
-
-  // Calculate vertical center position for text
-  const textStartY = startY + (padding / 2);
-
-  // Add text centered vertically
-  if (nameLines.length > 0) doc.text(nameLines, xPositions[0] + 2, textStartY);
-  if (constatLines.length > 0) doc.text(constatLines, xPositions[1] + 2, textStartY);
-  if (statusLines.length > 0) doc.text(statusLines, xPositions[2] + 2, textStartY);
+  doc.setFont('helvetica', 'normal');
 
   return rowHeight;
 };
