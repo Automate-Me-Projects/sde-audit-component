@@ -24,10 +24,6 @@ export const AuditFormComponent: FC = () => {
     description: 'The audit object',
   }) as unknown as [Audit, (value: Audit) => void];
 
-  useEffect(() => {
-    console.log('Current audit:', audit);
-  }, [audit]);
-
   const [building, setBuilding] = Retool.useStateObject({
     name: 'building',
     description: 'The building object',
@@ -74,10 +70,6 @@ export const AuditFormComponent: FC = () => {
     name: 'files',
     description: 'S3 bucket list response',
   }) as unknown as [S3Response, (value: S3Response) => void];
-
-  useEffect(() => {
-    console.log('S3 Images state:', { imagesCount: s3Response?.images?.length });
-  }, [s3Response]);
 
   const processedImages = useMemo(() => {
     if (!s3Response?.images?.length) return [];
