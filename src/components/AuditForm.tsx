@@ -97,8 +97,9 @@ const AuditFormComponent = React.memo(({
     { label: 'Locataire du bâtiment :', value: building?.tenant ?? '' },
     { label: 'Gestionnaire technique :', value: building?.technicalManager ?? '' },
     { label: 'Date de la dernière inspection :', value: building?.dateDerniereInspection ?? '' },
-    { label: 'Contact sur site :', value: building?.siteContact ?? '' }
-  ], [building?.owner, building?.tenant, building?.technicalManager, building?.dateDerniereInspection, building?.siteContact]);
+    { label: 'Contact sur site :', value: building?.siteContact ?? '' },
+    { label: 'Attestation de conformité :', value: building?.conformity ?? ''}
+  ], [building?.owner, building?.tenant, building?.technicalManager, building?.dateDerniereInspection, building?.siteContact, building?.conformity]);
 
   const auditRows = useMemo(() => [
     { 

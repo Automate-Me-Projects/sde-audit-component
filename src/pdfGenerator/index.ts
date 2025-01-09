@@ -200,28 +200,30 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.setTextColor(255, 255, 255);
   const icpeTitleX = MARGIN_X + (CONTENT_WIDTH - icpeTitleWidth) / 2;
   doc.text('CLASSEMENT ICPE', icpeTitleX, yPosition);
-  yPosition += icpeTitleHeight;
+  yPosition = yPosition - 5 + icpeTitleHeight;
 
   // Reset styles for table content
-  doc.setFontSize(9);
+  doc.setFontSize(12);
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
 
   // Define column widths
   const colWidths = {
-    rubrique: 35,
+    rubrique: 25,
     nature: 70,
     capacite: 45,
-    regime: 30
+    regime: 40
   };
 
   type ColWidthKeys = keyof typeof colWidths;
   
   // ICPE Table header
-  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
+  doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
+  doc.setTextColor(0, 0, 0); // Black text for headers
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.2);
   
   const headers: Array<{ key: ColWidthKeys; text: string }> = [
     { key: 'rubrique', text: 'Rubrique' },
@@ -232,9 +234,9 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
 
   // Draw header cells with no gaps
   let xPos = MARGIN_X;
-  const headerHeight = 7;
+  const headerHeight = 8; // Increased height for larger font
   headers.forEach(header => {
-    doc.rect(xPos, yPosition - 5, colWidths[header.key], headerHeight, 'F');
+    doc.rect(xPos, yPosition, colWidths[header.key], headerHeight, 'DF'); // Fill and Draw
     xPos += colWidths[header.key];
   });
 
@@ -243,62 +245,114 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   headers.forEach(header => {
     const textWidth = doc.getTextWidth(header.text);
     const centerX = xPos + (colWidths[header.key] - textWidth) / 2;
-    doc.text(header.text, centerX, yPosition);
+    doc.text(header.text, centerX, yPosition + 6); // Adjusted for larger font
     xPos += colWidths[header.key];
   });
   
-  yPosition += 8;
+  yPosition += headerHeight;
 
   // ICPE Table content
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(8);
-  building?.icpeTypes?.forEach((icpe) => {
-    if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+  doc.setFontSize(12); // Same size as headers
+
+  // Sort ICPE types by regime priority
+  const regimePriority = {
+    'autorisation': 0,
+    'enregistrement': 1,
+    'déclaration et contrôle': 2,
+    'déclaration': 3,
+    'non classé': 4
+  };
+
+  const normalizeRegime = (regime: string): string => {
+    const normalized = regime?.toLowerCase().trim() || '';
+    if (normalized.includes('contrôle') || normalized.includes('controle')) {
+      return 'déclaration et contrôle';
+    }
+    return normalized;
+  };
+
+  const sortedIcpeTypes = [...(building?.icpeTypes || [])].sort((a, b) => {
+    const regimeA = normalizeRegime(a.regime);
+    const regimeB = normalizeRegime(b.regime);
+    const priorityA = regimePriority[regimeA] ?? 999;
+    const priorityB = regimePriority[regimeB] ?? 999;
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // If same regime, sort by rubrique
+    return (a.rubrique || '').localeCompare(b.rubrique || '');
+  });
+
+  // Process each ICPE type
+  sortedIcpeTypes.forEach((icpe) => {
+    // Calculate wrapped text for each cell with consistent padding
+    const padding = 4;
+    const rubriqueLines = doc.splitTextToSize(icpe.rubrique || '', colWidths.rubrique - (padding * 2));
+    const descLines = doc.splitTextToSize(icpe.description || '', colWidths.nature - (padding * 2));
+    const capLines = doc.splitTextToSize(icpe.capacity || '', colWidths.capacite - (padding * 2));
+    const regimeLines = doc.splitTextToSize(icpe.regime || '', colWidths.regime - (padding * 2));
+
+    // Calculate row height based on the cell with the most lines
+    const maxLines = Math.max(
+      rubriqueLines.length,
+      descLines.length,
+      capLines.length,
+      regimeLines.length
+    );
+    const lineHeight = 7;
+    const rowHeight = maxLines * lineHeight + (padding * 2);
+
+    // Check if there's enough space for this row
+    if (yPosition + rowHeight > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
       doc.addPage();
       addHeader(doc, building, audit);
       yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
     }
 
-    xPos = MARGIN_X;
-    
-    const description = String(icpe.description || '');
-    const capacity = String(icpe.capacity || '');
-    const regime = String(icpe.regime || '');
-    const rubrique = String(icpe.rubrique || '');
-    
-    const descLines = doc.splitTextToSize(description, colWidths.nature - 4);
-    const capLines = doc.splitTextToSize(capacity, colWidths.capacite - 4);
-    const regimeLines = doc.splitTextToSize(regime, colWidths.regime - 4);
-    const rubriqueLines = doc.splitTextToSize(rubrique, colWidths.rubrique - 4);
-    
-    const maxLines = Math.max(
-      descLines.length,
-      capLines.length,
-      regimeLines.length,
-      rubriqueLines.length
-    );
-    
-    const lineHeight = 3.5;
-    const cellPadding = 4;
-    const actualRowHeight = Math.max(7, maxLines * lineHeight + cellPadding);
-    
-    // Draw cells with no gaps
-    doc.rect(xPos, yPosition - 3, colWidths.rubrique, actualRowHeight);
-    doc.text(rubriqueLines, xPos + 2, yPosition);
+    let xPos = MARGIN_X;
+
+    // Draw cells with borders matching addInfoTable
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.2);
+    doc.setTextColor(0, 0, 0); // Ensure text color is black for cell content
+
+    // Helper function to center text vertically and horizontally in a cell
+    const drawCenteredText = (lines: string[], x: number, width: number) => {
+      const textHeight = lines.length * lineHeight;
+      const verticalPadding = (rowHeight - textHeight) / 2;
+      const startY = yPosition + verticalPadding + lineHeight;
+
+      lines.forEach((line, index) => {
+        const lineWidth = doc.getTextWidth(line);
+        const centerX = x + (width - lineWidth) / 2;
+        doc.text(line, centerX, startY + (index * lineHeight));
+      });
+    };
+
+    // Draw cells and their content
+    // Rubrique cell
+    doc.rect(xPos, yPosition, colWidths.rubrique, rowHeight, 'S');
+    drawCenteredText(rubriqueLines, xPos, colWidths.rubrique);
     xPos += colWidths.rubrique;
-    
-    doc.rect(xPos, yPosition - 3, colWidths.nature, actualRowHeight);
-    doc.text(descLines, xPos + 2, yPosition);
+
+    // Nature cell
+    doc.rect(xPos, yPosition, colWidths.nature, rowHeight, 'S');
+    drawCenteredText(descLines, xPos, colWidths.nature);
     xPos += colWidths.nature;
-    
-    doc.rect(xPos, yPosition - 3, colWidths.capacite, actualRowHeight);
-    doc.text(capLines, xPos + 2, yPosition);
+
+    // Capacite cell
+    doc.rect(xPos, yPosition, colWidths.capacite, rowHeight, 'S');
+    drawCenteredText(capLines, xPos, colWidths.capacite);
     xPos += colWidths.capacite;
-    
-    doc.rect(xPos, yPosition - 3, colWidths.regime, actualRowHeight);
-    doc.text(regimeLines, xPos + 2, yPosition);
-    
-    yPosition += actualRowHeight;
+
+    // Regime cell
+    doc.rect(xPos, yPosition, colWidths.regime, rowHeight, 'S');
+    drawCenteredText(regimeLines, xPos, colWidths.regime);
+
+    yPosition += rowHeight;
   });
 
   // SYNTHÈSE section

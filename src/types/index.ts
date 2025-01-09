@@ -15,6 +15,7 @@ export interface Building {
   name: string;
   address: string;
   siteContact: string;
+  conformity: string;
   dateDerniereInspection: string;
   dateAPAPC: string;
   titularArreteePrefectoral: string;
