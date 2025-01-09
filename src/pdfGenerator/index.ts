@@ -382,68 +382,136 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       doc.text(`${lastSectionNumber}.1 Photographies`, MARGIN_X, yPosition);
       yPosition += 15;
 
-      const imagesPerRow = 4;
-      const imageWidth = (CONTENT_WIDTH) / imagesPerRow;
-      const imageHeight = imageWidth * 0.75; // 4:3 aspect ratio
+      const imagesPerRow = 2; // Reduced to 2 images per row for larger display
+      const padding = 2; // 2mm padding
+      const borderWidth = 0.1; // 0.1mm border width
+      const spacing = 8; // Spacing between images
+      const maxWidth = (CONTENT_WIDTH / imagesPerRow) - (padding * 2) - spacing; // Maximum width available for each image
       let currentImageInRow = 0;
 
       for (const image of images) {
-        if (yPosition + imageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT) {
           doc.addPage();
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
           currentImageInRow = 0;
         }
 
-        const xPosition = MARGIN_X + (currentImageInRow * (imageWidth + 10));
+        const xPosition = MARGIN_X + (currentImageInRow * (maxWidth + (padding * 2) + spacing));
 
         try {
           const img = new Image();
-          img.src = image.url;
+          img.crossOrigin = 'anonymous';
           await new Promise((resolve, reject) => {
             img.onload = () => {
               try {
-                // Add image to PDF
+                // Calculate dimensions maintaining aspect ratio
+                const imgAspectRatio = img.width / img.height;
+                const imageWidth = maxWidth;
+                const imageHeight = maxWidth / imgAspectRatio;
+
+                // Add name banner at the top
+                const bannerHeight = 12; // Increased banner height
+                doc.setFillColor(235, 241, 217); // LIGHTGREEN_BG_COLOR
+                doc.rect(
+                  xPosition + padding, 
+                  yPosition + padding,
+                  imageWidth,
+                  bannerHeight,
+                  'F'
+                );
+
+                // Add image name in banner
+                const imageName = image.name.replace(/\.[^/.]+$/, ""); // Remove file extension
+                doc.setFontSize(10); // Increased font size
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(0, 0, 0);
+                
+                // Center the text in the banner
+                const textWidth = doc.getTextWidth(imageName);
+                const textX = xPosition + padding + (imageWidth - textWidth) / 2;
+                const textY = yPosition + padding + bannerHeight / 2 + 2;
+                doc.text(imageName, textX, textY);
+
+                // Draw border around entire image + banner
+                doc.setDrawColor(200, 200, 200);
+                doc.setLineWidth(borderWidth);
+                doc.rect(
+                  xPosition, 
+                  yPosition, 
+                  imageWidth + (padding * 2), 
+                  imageHeight + bannerHeight + (padding * 2)
+                );
+
+                // Add image to PDF (with padding offset and adjusted for banner)
                 doc.addImage({ 
                   imageData: img, 
-                  x: xPosition, 
-                  y: yPosition,
+                  x: xPosition + padding, 
+                  y: yPosition + padding + bannerHeight,
                   width: imageWidth,
                   height: imageHeight,
                   compression: 'FAST'
                 });
 
-                // Add image name below
-                doc.setFontSize(8);
-                doc.setTextColor(0, 0, 0);
-                const nameLines = doc.splitTextToSize(String(image.name || ''), imageWidth);
-                doc.text(nameLines, xPosition, yPosition + imageHeight + 5);
+                // Reset font to normal
+                doc.setFont('helvetica', 'normal');
                 resolve(null);
               } catch (error) {
+                console.error('Error adding image to PDF:', error);
                 reject(error);
               }
             };
-            img.onerror = reject;
+            img.onerror = (error) => {
+              console.error('Error loading image:', error);
+              reject(error);
+            };
+            
+            setTimeout(() => {
+              img.src = image.url;
+            }, 100);
           });
 
+          // Update position for next image
           currentImageInRow++;
           if (currentImageInRow === imagesPerRow) {
             currentImageInRow = 0;
-            yPosition += imageHeight + 20;
+            yPosition += maxWidth + (padding * 2) + 20; // Use maxWidth as base for vertical spacing
           }
         } catch (error) {
           console.error('Error processing image:', error);
-          // Add placeholder for failed image
+          // Add placeholder for failed image with proper dimensions
+          const placeholderHeight = maxWidth * 0.75; // Default aspect ratio for placeholder
+          
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(borderWidth);
+          doc.rect(
+            xPosition, 
+            yPosition, 
+            maxWidth + (padding * 2), 
+            placeholderHeight + (padding * 2)
+          );
+          
           doc.setFillColor(240, 240, 240);
-          doc.rect(xPosition, yPosition, imageWidth, imageHeight, 'F');
-          doc.setFontSize(8);
+          doc.rect(
+            xPosition + padding, 
+            yPosition + padding, 
+            maxWidth, 
+            placeholderHeight, 
+            'F'
+          );
+          
+          doc.setFontSize(10);
           doc.setTextColor(100, 100, 100);
-          doc.text('Image non disponible', xPosition + 5, yPosition + imageHeight / 2);
+          doc.text(
+            'Image non disponible', 
+            xPosition + padding + 5, 
+            yPosition + padding + (placeholderHeight / 2)
+          );
 
           currentImageInRow++;
           if (currentImageInRow === imagesPerRow) {
             currentImageInRow = 0;
-            yPosition += imageHeight + 20;
+            yPosition += placeholderHeight + (padding * 2) + 20;
           }
         }
       }
