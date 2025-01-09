@@ -189,6 +189,40 @@ export const sortExpandedTemplateElements = (
   });
 };
 
+export const normalizeRegime = (regime: string): string => {
+  const normalized = regime?.toLowerCase().trim() || '';
+  if (normalized.includes('contrôle') || normalized.includes('controle')) {
+    return 'déclaration et contrôle';
+  }
+  return normalized;
+};
+
+type RegimeType = 'autorisation' | 'enregistrement' | 'déclaration et contrôle' | 'déclaration' | 'non classé';
+
+const regimePriority: Record<RegimeType, number> = {
+  'autorisation': 0,
+  'enregistrement': 1,
+  'déclaration et contrôle': 2,
+  'déclaration': 3,
+  'non classé': 4
+};
+
+export const sortIcpeTypes = <T extends { regime: string; rubrique: string }>(icpeTypes: T[]): T[] => {
+  return [...icpeTypes].sort((a, b) => {
+    const regimeA = normalizeRegime(a.regime);
+    const regimeB = normalizeRegime(b.regime);
+    const priorityA = regimePriority[regimeA as RegimeType] ?? 999;
+    const priorityB = regimePriority[regimeB as RegimeType] ?? 999;
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // If same regime, sort by rubrique
+    return (a.rubrique || '').localeCompare(b.rubrique || '');
+  });
+};
+
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number

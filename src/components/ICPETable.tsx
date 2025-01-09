@@ -1,9 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import type { ICPETableComponentProps } from '../types';
+import { sortIcpeTypes } from '../utils';
 
 export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], onCapacityChange }) => {
   const [inputValues, setInputValues] = useState<{[key: string]: string}>({});
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const sortedIcpeTypes = useMemo(() => sortIcpeTypes(icpeTypes), [icpeTypes]);
 
   const handleInputChange = useCallback((refId: string, value: string) => {
     if (!refId) return;
@@ -27,8 +30,8 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
 
   const getInputValue = useCallback((refId: string): string => {
     const localValue = inputValues[`${refId}-capacity`];
-    return localValue !== undefined ? localValue : icpeTypes.find(icpe => icpe.refId === refId)?.capacity || '';
-  }, [icpeTypes, inputValues]);
+    return localValue !== undefined ? localValue : sortedIcpeTypes.find(icpe => icpe.refId === refId)?.capacity || '';
+  }, [sortedIcpeTypes, inputValues]);
 
   if (!Array.isArray(icpeTypes)) {
     return (
@@ -61,7 +64,7 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {icpeTypes.map((icpe) => (
+            {sortedIcpeTypes.map((icpe) => (
               icpe?.refId ? (
                 <tr key={icpe.refId}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
