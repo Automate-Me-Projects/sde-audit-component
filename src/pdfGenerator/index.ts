@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { PDFGeneratorOptions } from '../types';
 import { sortByPosition, sortSectionsByPosition, formatDate, sortIcpeTypes } from '../utils/index';
-import { MARGIN_X, PAGE_WIDTH, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, HEADER_BG_COLOR, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR } from './constants';
 import { addHeader, addFooter } from './headerFooter';
 import { addInfoTable } from './tables';
 import { renderCategory } from './categories';

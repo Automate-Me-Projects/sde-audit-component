@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory } from '../types';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, HEADER_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN } from './constants';
 import { addHeader } from './headerFooter';
 
 // Function to check if we need a new page
@@ -116,18 +116,6 @@ export const generateSynthese = (
   // Separate 'Non assigné' from other actionOwners
   const nonAssigneData = actionOwnerMap.get('Non assigné');
   actionOwnerMap.delete('Non assigné');
-
-  // Function to get category or subcategory name for an item
-  const getCategoryInfo = (templateElement: TemplateElement) => {
-    if (templateElement.subCategoryId) {
-      const subCategory = subCategories.find(sc => sc._id === templateElement.subCategoryId);
-      return subCategory ? subCategory.name : '';
-    } else if (templateElement.categoryId) {
-      const category = categories.find(c => c._id === templateElement.categoryId);
-      return category ? category.name : '';
-    }
-    return '';
-  };
 
   // Function to check space for actor + section title + first item
   const checkSpaceForActorSection = (
