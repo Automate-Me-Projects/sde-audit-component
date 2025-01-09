@@ -242,7 +242,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     );
   };
 
-  const renderSubCategory = (subCategory: SubCategory) => {
+  const renderSubCategory = (subCategory: SubCategory, sectionId?: string) => {
     const sortedElements = getTemplateElementsForSubCategory(subCategory);
     
     if (sortedElements.length === 0) return null;
@@ -250,6 +250,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
     return (
       <div key={subCategory._id} className="ml-6">
         <h4 className="text-[rgb(146,208,80)] font-medium mb-3">{subCategory.name}</h4>
+        {sectionId && renderRegulatory(sectionId, subCategory.categoryId, subCategory._id)}
         <div className="space-y-4">
           {sortedElements.map((expandedElement) => (
             <AuditElementRow
@@ -282,7 +283,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         {sectionId && renderRegulatory(sectionId, category._id)}
         <div className="w-full space-y-6">
           {categorySubCategories.map(subCategory => 
-            renderSubCategory(subCategory)
+            renderSubCategory(subCategory, sectionId)
           )}
           {directElements.map(expandedElement => (
             <AuditElementRow
