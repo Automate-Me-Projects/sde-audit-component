@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { AuditElement, Building, Audit, TemplateElement } from '../types';
+import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory } from '../types';
 import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, HEADER_BG_COLOR } from './constants';
 import { addHeader } from './headerFooter';
 
@@ -44,7 +44,9 @@ export const generateSynthese = (
   building: Building,
   audit: Audit,
   auditElements: AuditElement[],
-  templateElements: TemplateElement[]
+  templateElements: TemplateElement[],
+  categories: Category[],
+  subCategories: SubCategory[]
 ): number => {
   doc.addPage();
   addHeader(doc, building, audit);
@@ -57,9 +59,9 @@ export const generateSynthese = (
 
   // First, collect all unique actionOwners from auditElements
   const actionOwnerMap = new Map<string, {
-    nonConformiteMajeure: Array<{name: string, constat: string, action: string}>,
-    nonConformes: Array<{name: string, constat: string, action: string}>,
-    observations: Array<{name: string, constat: string, action: string}>
+    nonConformiteMajeure: Array<{name: string, constat: string, action: string, categoryName?: string}>,
+    nonConformes: Array<{name: string, constat: string, action: string, categoryName?: string}>,
+    observations: Array<{name: string, constat: string, action: string, categoryName?: string}>
   }>();
 
   auditElements.forEach(auditElement => {
@@ -67,6 +69,15 @@ export const generateSynthese = (
     const templateElement = templateElements.find(te => te._id === auditElement.templateElementId);
     
     if (!templateElement) return;
+
+    let categoryName = '';
+    if (templateElement.subCategoryId) {
+      const subCategory = subCategories.find(sc => sc._id === templateElement.subCategoryId);
+      categoryName = subCategory ? subCategory.name : '';
+    } else if (templateElement.categoryId) {
+      const category = categories.find(c => c._id === templateElement.categoryId);
+      categoryName = category ? category.name : '';
+    }
 
     if (!actionOwnerMap.has(actionOwner)) {
       actionOwnerMap.set(actionOwner, {
@@ -82,19 +93,22 @@ export const generateSynthese = (
       ownerData.nonConformiteMajeure.push({
         name: templateElement.name,
         constat: auditElement.constat || '',
-        action: auditElement.action || ''
+        action: auditElement.action || '',
+        categoryName
       });
     } else if (auditElement.status === 'Non conforme') {
       ownerData.nonConformes.push({
         name: templateElement.name,
         constat: auditElement.constat || '',
-        action: auditElement.action || ''
+        action: auditElement.action || '',
+        categoryName
       });
     } else if (auditElement.status === 'Observation') {
       ownerData.observations.push({
         name: templateElement.name,
         constat: auditElement.constat || '',
-        action: auditElement.action || ''
+        action: auditElement.action || '',
+        categoryName
       });
     }
   });
@@ -103,31 +117,91 @@ export const generateSynthese = (
   const nonAssigneData = actionOwnerMap.get('Non assigné');
   actionOwnerMap.delete('Non assigné');
 
+  // Function to get category or subcategory name for an item
+  const getCategoryInfo = (templateElement: TemplateElement) => {
+    if (templateElement.subCategoryId) {
+      const subCategory = subCategories.find(sc => sc._id === templateElement.subCategoryId);
+      return subCategory ? subCategory.name : '';
+    } else if (templateElement.categoryId) {
+      const category = categories.find(c => c._id === templateElement.categoryId);
+      return category ? category.name : '';
+    }
+    return '';
+  };
+
+  // Function to check space for actor + section title + first item
+  const checkSpaceForActorSection = (
+    doc: jsPDF,
+    currentY: number,
+    item: {name: string, constat: string, action: string, categoryName?: string},
+    sectionTitleHeight: number
+  ) => {
+    // Calculate heights
+    const actorHeaderHeight = 12;
+    const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
+    const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
+    const contentHeight = Math.max(constatHeight, actionHeight);
+    const itemHeight = contentHeight + 20;
+
+    // Calculate item title height
+    const titleText = `${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+    const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
+    const titleHeight = lines.length * 6; // Each line is approximately 6mm high
+
+    // Total required height
+    const totalRequired = actorHeaderHeight + sectionTitleHeight + itemHeight + titleHeight;
+
+    if (currentY + totalRequired > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      return HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+    }
+    return currentY;
+  };
+
   // Function to render data for an actionOwner
   const renderActionOwnerData = (data: typeof nonAssigneData, actionOwner: string) => {
     if (!data || (data.nonConformiteMajeure.length === 0 && data.nonConformes.length === 0 && data.observations.length === 0)) {
       return;
     }
 
-    yPosition = checkAndAddNewPage(doc, yPosition, 50, building, audit);
+    // Check space for actor + first section (if any exists)
+    if (data.nonConformiteMajeure.length > 0) {
+      yPosition = checkSpaceForActorSection(doc, yPosition, data.nonConformiteMajeure[0], 10);
+    } else if (data.nonConformes.length > 0) {
+      yPosition = checkSpaceForActorSection(doc, yPosition, data.nonConformes[0], 10);
+    } else if (data.observations.length > 0) {
+      yPosition = checkSpaceForActorSection(doc, yPosition, data.observations[0], 10);
+    }
 
     // Actor header with background
-    doc.setFillColor(240, 240, 240);
+    doc.setFillColor(232, 251, 211);
     doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, 12, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
-    doc.text(actionOwner.toUpperCase(), MARGIN_X + 5, yPosition + 3);
+    doc.setTextColor(0, 0, 0);
+    
+    // Center the text
+    const textWidth = doc.getTextWidth(actionOwner.toUpperCase());
+    const centerX = MARGIN_X + (CONTENT_WIDTH / 2) - (textWidth / 2);
+    doc.text(actionOwner.toUpperCase(), centerX, yPosition + 3);
+    
     yPosition += 8;
 
     // Render non-conformités majeures if any exist
     if (data.nonConformiteMajeure.length > 0) {
-      doc.setFillColor(245, 245, 245);
+      doc.setFillColor(235, 51, 35); // Updated red color
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
-      doc.setTextColor(180, 0, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text('RECAPITULATIF DES NON-CONFORMITÉS MAJEURES', MARGIN_X + 5, yPosition + 4);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      
+      // Center the text
+      const titleText = 'RECAPITULATIF DES NON-CONFORMITÉS MAJEURES';
+      const textWidth = doc.getTextWidth(titleText);
+      const centerX = MARGIN_X + (CONTENT_WIDTH / 2) - (textWidth / 2);
+      doc.text(titleText, centerX, yPosition + 4);
+      
       yPosition += 12;
 
       data.nonConformiteMajeure.forEach((item, index) => {
@@ -140,20 +214,28 @@ export const generateSynthese = (
 
         const startY = yPosition;
 
+        const titleText = `NCM${index + 1} - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+        const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
+        const titleHeight = lines.length * 6; // Each line is approximately 6mm high
+
+        // Adjust total height to account for wrapped title
+        const adjustedTotalHeight = totalHeight + (titleHeight - 8); // Subtract original title height (8mm)
+
         doc.setFillColor(252, 242, 242);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
 
         doc.setFillColor(255, 235, 235);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
         doc.setTextColor(180, 0, 0);
         doc.setFont('helvetica', 'normal');
-        doc.text(`NCM${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+        doc.setFontSize(9); // Set consistent font size for title
+        doc.text(lines, MARGIN_X + 10, startY + 6);
 
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + 12;
+        const contentY = startY + titleHeight + 8;
         renderWrappedText(
           doc,
           item.constat,
@@ -172,7 +254,7 @@ export const generateSynthese = (
           'Action:'
         );
 
-        yPosition = startY + totalHeight + 4;
+        yPosition = startY + adjustedTotalHeight + 4;
       });
     }
 
@@ -181,12 +263,18 @@ export const generateSynthese = (
     }
 
     if (data.nonConformes.length > 0) {
-      doc.setFillColor(245, 245, 245);
+      doc.setFillColor(200, 100, 0); // Orange background
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
-      doc.setTextColor(200, 100, 0);
-      doc.setFont('helvetica', 'normal');
-      doc.text('RECAPITULATIF DES NON-CONFORMITÉS', MARGIN_X + 5, yPosition + 4);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      
+      // Center the text
+      const titleText = 'RECAPITULATIF DES NON-CONFORMITÉS';
+      const textWidth = doc.getTextWidth(titleText);
+      const centerX = MARGIN_X + (CONTENT_WIDTH / 2) - (textWidth / 2);
+      doc.text(titleText, centerX, yPosition + 4);
+      
       yPosition += 12;
 
       data.nonConformes.forEach((item, index) => {
@@ -199,20 +287,28 @@ export const generateSynthese = (
 
         const startY = yPosition;
 
+        const titleText = `NC${index + 1} - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+        const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
+        const titleHeight = lines.length * 6; // Each line is approximately 6mm high
+
+        // Adjust total height to account for wrapped title
+        const adjustedTotalHeight = totalHeight + (titleHeight - 8); // Subtract original title height (8mm)
+
         doc.setFillColor(252, 248, 227);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
 
         doc.setFillColor(255, 248, 227);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
         doc.setTextColor(200, 100, 0);
         doc.setFont('helvetica', 'normal');
-        doc.text(`NC${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+        doc.setFontSize(9); // Set consistent font size for title
+        doc.text(lines, MARGIN_X + 10, startY + 6);
 
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + 12;
+        const contentY = startY + titleHeight + 8;
         renderWrappedText(
           doc,
           item.constat,
@@ -231,7 +327,7 @@ export const generateSynthese = (
           'Action:'
         );
 
-        yPosition = startY + totalHeight + 4;
+        yPosition = startY + adjustedTotalHeight + 4;
       });
     }
 
@@ -240,12 +336,18 @@ export const generateSynthese = (
     }
 
     if (data.observations.length > 0) {
-      doc.setFillColor(245, 245, 245);
+      doc.setFillColor(225, 188, 75); // Updated yellow color
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.setFont('helvetica', 'normal');
-      doc.text('RECAPITULATIF DES OBSERVATIONS', MARGIN_X + 5, yPosition + 4);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      
+      // Center the text
+      const titleText = 'RECAPITULATIF DES OBSERVATIONS';
+      const textWidth = doc.getTextWidth(titleText);
+      const centerX = MARGIN_X + (CONTENT_WIDTH / 2) - (textWidth / 2);
+      doc.text(titleText, centerX, yPosition + 4);
+      
       yPosition += 12;
 
       data.observations.forEach((item, index) => {
@@ -258,20 +360,28 @@ export const generateSynthese = (
 
         const startY = yPosition;
 
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, totalHeight, 2, 2, 'F');
+        const titleText = `O${index + 1} - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+        const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
+        const titleHeight = lines.length * 6;
 
-        doc.setFillColor(240, 240, 240);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, 8, 2, 2, 'F');
+        // Adjust total height to account for wrapped title
+        const adjustedTotalHeight = totalHeight + (titleHeight - 8);
+
+        doc.setFillColor(255, 248, 220); // Light yellow background for the main cell
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
+
+        doc.setFillColor(255, 240, 180);
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
         doc.setTextColor(100, 100, 100);
         doc.setFont('helvetica', 'normal');
-        doc.text(`O${index + 1} - ${String(item.name)}`, MARGIN_X + 10, startY + 6);
+        doc.setFontSize(9); // Set consistent font size for title
+        doc.text(lines, MARGIN_X + 10, startY + 6);
 
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + 8, separatorX, startY + totalHeight);
+        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + 12;
+        const contentY = startY + titleHeight + 8;
         renderWrappedText(
           doc,
           item.constat,
@@ -290,7 +400,7 @@ export const generateSynthese = (
           'Action:'
         );
 
-        yPosition = startY + totalHeight + 4;
+        yPosition = startY + adjustedTotalHeight + 4;
       });
     }
 

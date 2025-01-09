@@ -219,7 +219,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   type ColWidthKeys = keyof typeof colWidths;
   
   // ICPE Table header
-  doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
+  doc.setFillColor(232, 251, 211);
   doc.setTextColor(0, 0, 0); // Black text for headers
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
@@ -328,7 +328,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     yPosition += rowHeight;
   });
 
-  yPosition = generateSynthese(doc, building, audit, auditElements, templateElements);
+  yPosition = generateSynthese(doc, building, audit, auditElements, templateElements, categories, subCategories);
 
   if (audit.templateVersion === 2) {
     // Render by sections
@@ -375,6 +375,11 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
       doc.text(`${lastSectionNumber}. ANNEXES`, MARGIN_X, yPosition);
+      yPosition += 15;
+      
+      // Add Photographies subtitle
+      doc.setFontSize(14);
+      doc.text(`${lastSectionNumber}.1 Photographies`, MARGIN_X, yPosition);
       yPosition += 15;
 
       const imagesPerRow = 4;
