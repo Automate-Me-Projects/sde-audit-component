@@ -24,6 +24,83 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     files
   } = options;
 
+  // Helper function to group and sort files by name prefix
+  const groupAndSortFiles = (prefix: string) => {
+    const filteredFiles = files?.filter(file => file.name.startsWith(prefix)) || [];
+    return filteredFiles.sort((a, b) => {
+      const numA = parseInt(a.name.match(/\d+/)?.[0] || '0');
+      const numB = parseInt(b.name.match(/\d+/)?.[0] || '0');
+      return numA - numB;
+    });
+  };
+
+  // Helper function to add full-page image
+  const addFullPageImage = async (doc: jsPDF, imageUrl: string, addTitle: boolean, title: string, startY: number) => {
+    // Encode the URL properly
+    const encodedUrl = encodeURI(imageUrl).replace(/\(/g, '%28').replace(/\)/g, '%29');
+    
+    if (addTitle) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, MARGIN_X, startY);
+      startY += 15;
+    }
+
+    try {
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            const pageWidth = doc.internal.pageSize.width;
+            const pageHeight = doc.internal.pageSize.height;
+            const imgAspectRatio = img.width / img.height;
+            
+            let imageWidth = pageWidth - (MARGIN_X * 2);
+            let imageHeight = imageWidth / imgAspectRatio;
+            
+            // Adjust if image is too tall
+            if (imageHeight > pageHeight - FOOTER_HEIGHT - startY) {
+              imageHeight = pageHeight - FOOTER_HEIGHT - startY;
+              imageWidth = imageHeight * imgAspectRatio;
+            }
+            
+            const xPosition = (pageWidth - imageWidth) / 2;
+
+            doc.addImage({
+              imageData: img,
+              x: xPosition,
+              y: startY,
+              width: imageWidth,
+              height: imageHeight,
+              compression: 'FAST'
+            });
+            resolve(null);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        img.onerror = (error) => reject(error);
+        img.src = encodedUrl;
+      });
+    } catch (error) {
+      // Add error placeholder
+      const pageWidth = doc.internal.pageSize.width;
+      const placeholderHeight = 40;
+      
+      doc.setFillColor(240, 240, 240);
+      doc.rect(MARGIN_X, startY, pageWidth - (MARGIN_X * 2), placeholderHeight, 'F');
+      
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        'Image non disponible',
+        pageWidth / 2,
+        startY + (placeholderHeight / 2),
+        { align: 'center' }
+      );
+    }
+  };
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -366,6 +443,9 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     // Store the last section number for ANNEXES
     const lastSectionNumber = validSections.length + 3;
 
+    // Initialize annexe number counter
+    let annexeNumber = 2;  // Start from 2 since Photographies is 1
+
     // ANNEXES section
     if (images && images.length > 0) {
       doc.addPage();
@@ -382,11 +462,11 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       doc.text(`${lastSectionNumber}.1 Photographies`, MARGIN_X, yPosition);
       yPosition += 15;
 
-      const imagesPerRow = 2; // Reduced to 2 images per row for larger display
-      const padding = 2; // 2mm padding
-      const borderWidth = 0.1; // 0.1mm border width
-      const spacing = 8; // Spacing between images
-      const maxWidth = (CONTENT_WIDTH / imagesPerRow) - (padding * 2) - spacing; // Maximum width available for each image
+      const imagesPerRow = 2; 
+      const padding = 2; 
+      const borderWidth = 0.1; 
+      const spacing = 8; 
+      const maxWidth = (CONTENT_WIDTH / imagesPerRow) - (padding * 2) - spacing; 
       let currentImageInRow = 0;
 
       for (const image of images) {
@@ -405,14 +485,12 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           await new Promise((resolve, reject) => {
             img.onload = () => {
               try {
-                // Calculate dimensions maintaining aspect ratio
                 const imgAspectRatio = img.width / img.height;
                 const imageWidth = maxWidth;
                 const imageHeight = maxWidth / imgAspectRatio;
 
-                // Add name banner at the top
-                const bannerHeight = 12; // Increased banner height
-                doc.setFillColor(235, 241, 217); // LIGHTGREEN_BG_COLOR
+                const bannerHeight = 12; 
+                doc.setFillColor(235, 241, 217); 
                 doc.rect(
                   xPosition + padding, 
                   yPosition + padding,
@@ -421,19 +499,16 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
                   'F'
                 );
 
-                // Add image name in banner
-                const imageName = image.name.replace(/\.[^/.]+$/, ""); // Remove file extension
-                doc.setFontSize(10); // Increased font size
+                const imageName = image.name.replace(/\.[^/.]+$/, ""); 
+                doc.setFontSize(10); 
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor(0, 0, 0);
                 
-                // Center the text in the banner
                 const textWidth = doc.getTextWidth(imageName);
                 const textX = xPosition + padding + (imageWidth - textWidth) / 2;
                 const textY = yPosition + padding + bannerHeight / 2 + 2;
                 doc.text(imageName, textX, textY);
 
-                // Draw border around entire image + banner
                 doc.setDrawColor(200, 200, 200);
                 doc.setLineWidth(borderWidth);
                 doc.rect(
@@ -443,7 +518,6 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
                   imageHeight + bannerHeight + (padding * 2)
                 );
 
-                // Add image to PDF (with padding offset and adjusted for banner)
                 doc.addImage({ 
                   imageData: img, 
                   x: xPosition + padding, 
@@ -453,7 +527,6 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
                   compression: 'FAST'
                 });
 
-                // Reset font to normal
                 doc.setFont('helvetica', 'normal');
                 resolve(null);
               } catch (error) {
@@ -471,16 +544,14 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
             }, 100);
           });
 
-          // Update position for next image
           currentImageInRow++;
           if (currentImageInRow === imagesPerRow) {
             currentImageInRow = 0;
-            yPosition += maxWidth + (padding * 2) + 20; // Use maxWidth as base for vertical spacing
+            yPosition += maxWidth + (padding * 2) + 20; 
           }
         } catch (error) {
           console.error('Error processing image:', error);
-          // Add placeholder for failed image with proper dimensions
-          const placeholderHeight = maxWidth * 0.75; // Default aspect ratio for placeholder
+          const placeholderHeight = maxWidth * 0.75; 
           
           doc.setDrawColor(200, 200, 200);
           doc.setLineWidth(borderWidth);
@@ -515,6 +586,75 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           }
         }
       }
+    }
+
+    // Add Etat des stocks section if files exist
+    const etatStocksFiles = groupAndSortFiles('Etat des stocks');
+    if (etatStocksFiles.length > 0) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${lastSectionNumber}.${annexeNumber} Etat des stocks`, MARGIN_X, yPosition);
+      yPosition += 15;
+      
+      for (let i = 0; i < etatStocksFiles.length; i++) {
+        if (i > 0) {
+          doc.addPage();
+          addHeader(doc, building, audit);
+          yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+        }
+        await addFullPageImage(doc, etatStocksFiles[i].url, false, '', yPosition);
+      }
+      annexeNumber++;
+    }
+
+    // Add Plan de stockage section if files exist
+    const planStockageFiles = groupAndSortFiles('Plan de stockage');
+    if (planStockageFiles.length > 0) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${lastSectionNumber}.${annexeNumber} Plan de stockage`, MARGIN_X, yPosition);
+      yPosition += 15;
+      
+      for (let i = 0; i < planStockageFiles.length; i++) {
+        if (i > 0) {
+          doc.addPage();
+          addHeader(doc, building, audit);
+          yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+        }
+        await addFullPageImage(doc, planStockageFiles[i].url, false, '', yPosition);
+      }
+      annexeNumber++;
+    }
+
+    // Add Suivi d'inspection section if files exist
+    const suiviInspectionFiles = groupAndSortFiles('Suivi d\'inspection');
+    if (suiviInspectionFiles.length > 0) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${lastSectionNumber}.${annexeNumber} Suivi d'inspection`, MARGIN_X, yPosition);
+      yPosition += 15;
+      
+      for (let i = 0; i < suiviInspectionFiles.length; i++) {
+        if (i > 0) {
+          doc.addPage();
+          addHeader(doc, building, audit);
+          yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+        }
+        await addFullPageImage(doc, suiviInspectionFiles[i].url, false, '', yPosition);
+      }
+      annexeNumber++;
     }
   } else {
     // Render categories directly
