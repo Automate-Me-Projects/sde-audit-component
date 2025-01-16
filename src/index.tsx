@@ -229,7 +229,7 @@ export const AuditFormComponent: FC = () => {
     const newAuditElements = [...auditElements, auditElement];
     setAuditElements(newAuditElements);
 
-    const { _id, createdAt, updatedAt, ...retoolAuditElement } = auditElement;
+    const { createdAt, updatedAt, ...retoolAuditElement } = auditElement;
     triggerEvent('auditElementAdd', { element: retoolAuditElement });
   }, [
     allTemplateElements,
@@ -277,13 +277,20 @@ export const AuditFormComponent: FC = () => {
     if (!element.auditElement) return;
   
     const timestamp = createTimestamp();
-    const { _id, createdAt, updatedAt, ...retoolAuditElement } = element.auditElement;
+    const { _id, createdAt, updatedAt, ...dataAuditElement } = element.auditElement;
     
+    const tempId = generateTempId();
+
     const newAuditElement = {
-      ...retoolAuditElement,
-      _id: generateTempId(),
+      ...dataAuditElement,
+      _id: tempId,
       createdAt: timestamp,
       updatedAt: timestamp
+    };
+
+    const retoolAuditElement = {
+      ...dataAuditElement,
+      _id: tempId
     };
 
     triggerEvent('auditElementAdd', { element: retoolAuditElement });
@@ -298,6 +305,7 @@ export const AuditFormComponent: FC = () => {
     }
 
     const timestamp = createTimestamp();
+    const tempId = generateTempId();
 
     const templateElement = {
       _id,
@@ -312,7 +320,7 @@ export const AuditFormComponent: FC = () => {
     };
 
     const auditElement = {
-      _id: generateTempId(),
+      _id: tempId,
       auditId: audit.id,
       templateElementId: templateElement._id,
       categoryId: templateElement.categoryId,
@@ -341,6 +349,7 @@ export const AuditFormComponent: FC = () => {
         templateVersion: templateElement.templateVersion
       },
       auditElement: {
+        _id: tempId,
         auditId: auditElement.auditId,
         categoryId: auditElement.categoryId,
         subCategoryId: auditElement.subCategoryId,
