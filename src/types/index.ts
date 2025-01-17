@@ -132,7 +132,7 @@ export interface AuditFormProps {
   images: S3Item[];
   files: S3Item[];
   onAuditChange?: (field: string, value: any) => void;
-  onElementChange?: (elementId: string, field: string, value: any) => void;
+  onElementChange?: (elementId: string | undefined, templateElementId: string, field: string, value: any) => void;
   onElementDuplicate?: (element: ExpandedElement) => void;
   onElementDelete?: (element: ExpandedElement) => void;
   onElementAdd?: (
@@ -170,7 +170,7 @@ export interface AuditElementsProps {
   regulatories: Regulatory[];
   templateVersion: number;
   actors: string[];
-  onAuditElementChange: (elementId: string, field: string, value: string) => void;
+  onAuditElementChange: (elementId: string | undefined, templateElementId: string, field: string, value: string) => void;
   onElementDuplicate: (element: ExpandedElement) => void;
   onElementDelete: (element: ExpandedElement) => void;
 }
@@ -179,7 +179,7 @@ export interface AuditElementRowProps {
   expandedElement: ExpandedElement;
   onElementDelete: (element: ExpandedElement) => void;
   onElementDuplicate: (element: ExpandedElement) => void;
-  onAuditElementChange: (elementId: string, field: string, value: string) => void;
+  onAuditElementChange: (elementId: string | undefined, templateElementId: string,field: string, value: string) => void;
   actors: string[];
 }
 

@@ -20,7 +20,8 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 }) => {
   const [inputValues, setInputValues] = useState<{[key: string]: string}>({});
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const elementId = expandedElement.auditElement?._id || expandedElement._id;
+  const elementId = expandedElement.auditElement?._id;
+  const templateElementId = expandedElement._id;
   const isFirstRender = useRef(true);
 
   // Initialize input values on first render only
@@ -50,9 +51,9 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 
     // Set new timeout
     timeoutRef.current = setTimeout(() => {
-      onAuditElementChange(elementId, field, value);
+      onAuditElementChange(elementId, templateElementId, field, value);
     }, 1000);
-  }, [elementId, onAuditElementChange]);
+  }, [elementId, templateElementId, onAuditElementChange]);
 
   const getInputValue = useCallback((field: 'constat' | 'action'): string => {
     const key = `${elementId}-${field}`;
@@ -109,7 +110,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
       <div>
         <StatusDropdown
           value={expandedElement.auditElement?.status || ''}
-          onChange={(value) => onAuditElementChange(elementId, 'status', value)}
+          onChange={(value) => onAuditElementChange(elementId, templateElementId, 'status', value)}
           options={[
             'Conforme',
             'Non conforme',
@@ -124,7 +125,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
       <div>
         <select
           value={expandedElement.auditElement?.actionType || ''}
-          onChange={(e) => onAuditElementChange(elementId, 'actionType', e.target.value)}
+          onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionType', e.target.value)}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Type d&apos;action</option>
@@ -148,7 +149,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
       <div>
         <select
           value={expandedElement.auditElement?.actionOwner || ''}
-          onChange={(e) => onAuditElementChange(elementId, 'actionOwner', e.target.value)}
+          onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionOwner', e.target.value)}
           className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Acteur</option>

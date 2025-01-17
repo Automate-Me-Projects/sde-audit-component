@@ -122,9 +122,9 @@ const AuditFormComponent = React.memo(({
     }
   ], [audit?.visitDate, audit?.reportDate, audit?.editor, handleAuditDataChange]);
 
-  const handleAuditElementChange = useCallback((elementId: string, field: string, value: string) => {
+  const handleAuditElementChange = useCallback((elementId: string | undefined, templateElementId: string, field: string, value: string) => {
     if (onElementChange) {
-      onElementChange(elementId, field, value);
+      onElementChange(elementId, templateElementId, field, value);
     }
   }, [onElementChange]);
 

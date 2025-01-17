@@ -145,7 +145,7 @@ export const AuditFormComponent: FC = () => {
         setNewAuditElement(null);
         break;
       case 'auditElementChange':
-        const newChangedElement = { elementId: data.elementId, field: data.field, value: data.value };
+        const newChangedElement = { elementId: data.elementId, templateElementId: data.templateElementId, field: data.field, value: data.value };
         setChangedAuditElement([newChangedElement]);
         onAuditElementChange();
         setChangedAuditElement([]);
@@ -241,8 +241,8 @@ export const AuditFormComponent: FC = () => {
     triggerEvent
   ]);
 
-  const handleAuditElementChange = useCallback((elementId: string, field: string, value: any) => {
-    triggerEvent('auditElementChange', { elementId, field, value });
+  const handleAuditElementChange = useCallback((elementId: string | undefined, templateElementId: string, field: string, value: any) => {
+    triggerEvent('auditElementChange', { elementId, templateElementId, field, value });
 
     if (auditElements && Array.isArray(auditElements)) {
       const updatedElements = auditElements.map(element => 
@@ -342,6 +342,7 @@ export const AuditFormComponent: FC = () => {
 
     const retoolData = {
       templateElement: {
+        _id,
         categoryId: templateElement.categoryId,
         subCategoryId: templateElement.subCategoryId,
         name: templateElement.name,
@@ -353,6 +354,7 @@ export const AuditFormComponent: FC = () => {
         auditId: auditElement.auditId,
         categoryId: auditElement.categoryId,
         subCategoryId: auditElement.subCategoryId,
+        templateElementId: _id,
         status: auditElement.status,
         constat: auditElement.constat,
         actionType: auditElement.actionType,
