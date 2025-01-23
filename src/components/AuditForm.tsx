@@ -217,7 +217,7 @@ const AuditFormComponent = React.memo(({
   }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images, files]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 absolute inset-0">
       <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] p-4 z-50 shadow-md">
         <h1 className="text-[rgb(146,208,80)] text-2xl font-bold mb-4">
           {building.name} - {audit.year}
@@ -264,7 +264,7 @@ const AuditFormComponent = React.memo(({
         </div>
       </div>
 
-      <div className="pt-32 px-6 pb-8 w-full space-y-8">
+      <div className="pt-32 px-6 pb-8 w-full max-w-full mx-auto space-y-8">
         <InfoTable rows={infoTableRows} />
 
         <InfoTable
