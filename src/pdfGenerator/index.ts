@@ -90,7 +90,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       doc.setFillColor(240, 240, 240);
       doc.rect(MARGIN_X, startY, pageWidth - (MARGIN_X * 2), placeholderHeight, 'F');
       
-      doc.setFontSize(12);
+      doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       doc.text(
         'Image non disponible',
@@ -189,12 +189,14 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   
   // Calculate content height and check if we need a page break before starting
   const descriptionText = building?.icpeRegulations || '';
-  const descriptionLines = doc.splitTextToSize(descriptionText, sectionWidth - (textPadding * 2));
+  const textWidth = sectionWidth - (textPadding * 2);
+  // Estimate the number of lines for height calculation
+  const estimatedLines = doc.splitTextToSize(descriptionText, textWidth);
   const lineHeight = 5;
-  const contentHeight = (descriptionLines.length * lineHeight) + (textPadding * 2);
+  const contentHeight = (estimatedLines.length * lineHeight) + (textPadding * 2);
   const titleHeight = 8;
   const totalHeight = contentHeight + titleHeight;
-  
+
   // Check if we need a page break before starting
   if (yPosition + totalHeight + (padding * 2) > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
     doc.addPage();
@@ -219,45 +221,101 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   const titleX = innerX + (sectionWidth - titleWidth) / 2;
   doc.text(title, titleX, innerY + 5);
   
-  // Content area with grey background
+  // Draw grey background for content
   doc.setFillColor(240, 240, 240);
   doc.rect(innerX, innerY + titleHeight, sectionWidth, contentHeight, 'F');
-  
+
   // Add text content
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9); // Set font size for table content
   doc.setTextColor(0, 0, 0); // Force black color
-  let textY = innerY + titleHeight + textPadding;
   
-  descriptionLines.forEach((line: string) => {
-    // Check if we're too close to the footer with extra margin
-    if (textY > doc.internal.pageSize.height - FOOTER_HEIGHT - 20) {
-      // Calculate remaining height before creating new page
-      const currentIndex = descriptionLines.indexOf(line);
-      const remainingLines = descriptionLines.slice(currentIndex);
-      const remainingHeight = (remainingLines.length * lineHeight) + (textPadding * 2);
-      
-      // Only proceed with new page if we actually have content to write
-      if (remainingLines.length > 0) {
-        doc.addPage();
-        addHeader(doc, building, audit);
-        const newY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
-        
-        // Draw border
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(borderWidth); // Maintain border thickness
-        doc.rect(MARGIN_X, newY, CONTENT_WIDTH, remainingHeight + (padding * 2), 'S');
-        
-        // Draw grey background
-        doc.setFillColor(240, 240, 240);
-        doc.rect(MARGIN_X + padding, newY + padding, sectionWidth, remainingHeight, 'F');
-        
-        textY = newY + padding + textPadding;
-        doc.setTextColor(0, 0, 0); // Ensure black color after page break
+  // Calculate available height on first page
+  const availableHeight = doc.internal.pageSize.height - FOOTER_HEIGHT - (innerY + titleHeight + textPadding) - 20;
+  const linesPerPage = Math.floor(availableHeight / lineHeight);
+  const maxCharsPerLine = Math.floor(textWidth / (doc.getStringUnitWidth('m') * doc.internal.scaleFactor / 1000));
+  
+  // Function to process text chunk with smart justification
+  const processTextChunk = (chunk: string, y: number) => {
+    let currentY = y;
+    
+    // Split into paragraphs while preserving empty lines
+    const paragraphs = chunk.split(/\n/);
+    
+    paragraphs.forEach((paragraph) => {
+      if (paragraph.trim() === '') {
+        // Empty line, just add spacing
+        currentY += lineHeight;
+        return;
       }
+
+      // For each paragraph, let jsPDF handle the text wrapping and justification
+      const textHeight = doc.getTextDimensions(paragraph, {
+        maxWidth: textWidth
+      }).h;
+
+      // Calculate how many lines this will take
+      const numberOfLines = Math.ceil(textHeight / lineHeight);
+
+      // If this is a single line or empty, don't justify
+      if (numberOfLines <= 1 || !paragraph.trim()) {
+        doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
+          align: 'left',
+          maxWidth: textWidth
+        });
+      } else {
+        // For multi-line paragraphs, justify the text
+        doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
+          align: 'justify',
+          maxWidth: textWidth,
+          renderingMode: "fill"
+        });
+      }
+
+      // Move to next paragraph position
+      currentY += textHeight + (lineHeight * 0.5);
+    });
+
+    return currentY;
+  };
+  
+  // Split text into chunks that will fit on each page
+  let remainingText = descriptionText;
+  let currentY = innerY + titleHeight + textPadding;
+  
+  while (remainingText.length > 0) {
+    const availableSpace = linesPerPage * maxCharsPerLine;
+    let textChunk = remainingText;
+    
+    if (remainingText.length > availableSpace) {
+      // Find last space within available space
+      const lastSpaceIndex = remainingText.lastIndexOf(' ', availableSpace);
+      textChunk = remainingText.substring(0, lastSpaceIndex);
+      remainingText = remainingText.substring(lastSpaceIndex + 1);
+    } else {
+      remainingText = '';
     }
-    doc.text(line, innerX + textPadding, textY);
-    textY += lineHeight;
-  });
+    
+    // Process the text chunk with smart justification
+    currentY = processTextChunk(textChunk, currentY);
+    
+    // If there's more text, add a new page
+    if (remainingText.length > 0) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + textPadding;
+      
+      // Draw border and background on new page
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(borderWidth);
+      doc.rect(MARGIN_X, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN, CONTENT_WIDTH, doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 10, 'S');
+      
+      doc.setFillColor(240, 240, 240);
+      doc.rect(MARGIN_X + padding, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + padding, sectionWidth, doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 20, 'F');
+      
+      doc.setTextColor(0, 0, 0);
+    }
+  }
 
   yPosition += totalHeight + (padding * 2) + 5;
 
@@ -281,9 +339,9 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   yPosition = yPosition - 5 + icpeTitleHeight;
 
   // Reset styles for table content
-  doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
 
   // Define column widths
   const colWidths = {
@@ -298,7 +356,6 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // ICPE Table header
   doc.setFillColor(232, 251, 211);
   doc.setTextColor(0, 0, 0); // Black text for headers
-  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.2);
@@ -331,15 +388,14 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
 
   // ICPE Table content
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(12); // Same size as headers
 
   // Sort ICPE types by regime priority
   const sortedIcpeTypes = sortIcpeTypes(building?.icpeTypes || []);
 
   // Process each ICPE type
-  sortedIcpeTypes.forEach((icpe) => {
+  sortedIcpeTypes.forEach((icpe, index) => {
     // Calculate wrapped text for each cell with consistent padding
-    const padding = 4;
+    const padding = 2; // Reduced from 4 to 2
     const rubriqueLines = doc.splitTextToSize(icpe.rubrique || '', colWidths.rubrique - (padding * 2));
     const descLines = doc.splitTextToSize(icpe.description || '', colWidths.nature - (padding * 2));
     const capLines = doc.splitTextToSize(icpe.capacity || '', colWidths.capacite - (padding * 2));
@@ -352,17 +408,28 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       capLines.length,
       regimeLines.length
     );
-    const lineHeight = 7;
+    const lineHeight = 5; // Reduced from 7 to 5
     const rowHeight = maxLines * lineHeight + (padding * 2);
 
-    // Check if there's enough space for this row
+    // Check if we need a new page
     if (yPosition + rowHeight > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
       doc.addPage();
       addHeader(doc, building, audit);
       yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      
+      // Réinitialiser les propriétés du texte après le changement de page
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 0, 0);
     }
 
     let xPos = MARGIN_X;
+
+    // Set background color for alternating rows
+    if (index % 2 === 1) {
+      doc.setFillColor(240, 240, 240); // Light gray for odd rows
+      doc.rect(MARGIN_X, yPosition, CONTENT_WIDTH, rowHeight, 'F');
+    }
 
     // Draw cells with borders matching addInfoTable
     doc.setDrawColor(200, 200, 200);
@@ -372,8 +439,8 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     // Helper function to center text vertically and horizontally in a cell
     const drawCenteredText = (lines: string[], x: number, width: number) => {
       const textHeight = lines.length * lineHeight;
-      const verticalPadding = (rowHeight - textHeight) / 2;
-      const startY = yPosition + verticalPadding + lineHeight;
+      const verticalPadding = Math.max((rowHeight - textHeight) / 2, padding);
+      const startY = yPosition + verticalPadding + (lineHeight * 0.8); // Ajusté pour un meilleur centrage
 
       lines.forEach((line, index) => {
         const lineWidth = doc.getTextWidth(line);
@@ -481,14 +548,22 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
 
         try {
           const img = new Image();
-          img.crossOrigin = 'anonymous';
           await new Promise((resolve, reject) => {
             img.onload = () => {
               try {
+                const pageWidth = doc.internal.pageSize.width;
+                const pageHeight = doc.internal.pageSize.height;
                 const imgAspectRatio = img.width / img.height;
-                const imageWidth = maxWidth;
-                const imageHeight = maxWidth / imgAspectRatio;
-
+                
+                let imageWidth = pageWidth - (MARGIN_X * 2);
+                let imageHeight = imageWidth / imgAspectRatio;
+                
+                // Adjust if image is too tall
+                if (imageHeight > pageHeight - FOOTER_HEIGHT - yPosition) {
+                  imageHeight = pageHeight - FOOTER_HEIGHT - yPosition;
+                  imageWidth = imageHeight * imgAspectRatio;
+                }
+                
                 const bannerHeight = 12; 
                 doc.setFillColor(235, 241, 217); 
                 doc.rect(

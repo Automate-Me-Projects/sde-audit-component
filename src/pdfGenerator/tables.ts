@@ -21,9 +21,10 @@ export const addInfoTable = (doc: jsPDF, rows: { label: string; value: string }[
   const valueColumnWidth = sectionWidth * 0.75; // 75% for values
   let currentY = yPosition - 5 + titleHeight;
   
-  rows.forEach((row) => {
+  rows.forEach((row, index) => {
     // Calculate row height based on content
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
     const labelLines = doc.splitTextToSize(row.label, labelColumnWidth - 4);
     const valueLines = doc.splitTextToSize(row.value, valueColumnWidth - 4);
     const maxLines = Math.max(labelLines.length, valueLines.length);
@@ -32,6 +33,12 @@ export const addInfoTable = (doc: jsPDF, rows: { label: string; value: string }[
     // Label column background (sde-light-green)
     doc.setFillColor(232, 251, 211); // #e8fbd3
     doc.rect(MARGIN_X, currentY, labelColumnWidth, rowHeight, 'F');
+    
+    // Value column background (alternate gray for odd rows)
+    if (index % 2 === 1) {
+      doc.setFillColor(240, 240, 240); // Light gray for odd rows
+      doc.rect(MARGIN_X + labelColumnWidth, currentY, valueColumnWidth, rowHeight, 'F');
+    }
     
     // Row borders (light grey)
     doc.setDrawColor(200, 200, 200);

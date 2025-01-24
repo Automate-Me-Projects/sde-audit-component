@@ -59,8 +59,8 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
 
   const maxLines = Math.max(nameLines.length, constatLines.length, statusLines.length);
   const lineHeight = 4;
-  const padding = 8; // Increased from 6 to 8 for more top padding
-  const rowHeight = maxLines * lineHeight + padding;
+  const padding = 4;
+  const rowHeight = maxLines * lineHeight + (padding * 2);
 
   // Draw cell borders (thinner, 0.1 instead of default)
   doc.setDrawColor(128, 128, 128);
@@ -76,29 +76,70 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
   doc.line(MARGIN_X, startY, MARGIN_X + CONTENT_WIDTH, startY);
   doc.line(MARGIN_X, startY + rowHeight, MARGIN_X + CONTENT_WIDTH, startY + rowHeight);
 
-  // Center text vertically with more top padding
-  const textY = startY + padding/1.5; // Adjusted to move text down a bit more
+  // Calculate vertical centering for each column
+  const nameTextHeight = nameLines.length * lineHeight;
+  const constatTextHeight = constatLines.length * lineHeight;
+  const statusTextHeight = statusLines.length * lineHeight;
+
+  const baselineOffset = lineHeight * 0.8;
 
   // Name column (centered)
+  const nameVerticalPadding = (rowHeight - nameTextHeight) / 2;
+  const nameStartY = startY + nameVerticalPadding + baselineOffset;
   nameLines.forEach((line: string, i: number) => {
     const xCenter = MARGIN_X + nameWidth/2;
     const lineWidth = doc.getTextWidth(line);
-    doc.text(line, xCenter - lineWidth/2, textY + (i * lineHeight));
+    doc.text(line, xCenter - lineWidth/2, nameStartY + (i * lineHeight));
   });
 
-  // Constat column (left-aligned)
-  constatLines.forEach((line: string, i: number) => {
-    doc.text(line, xPositions[1] + 2, textY + (i * lineHeight));
+  // Constat column (justified if multi-line)
+  const constatVerticalPadding = (rowHeight - constatTextHeight) / 2;
+  const constatStartY = startY + constatVerticalPadding + baselineOffset;
+  
+  // Split constat into paragraphs
+  const constatParagraphs = constat.split(/\n/);
+  let currentY = constatStartY;
+
+  constatParagraphs.forEach((paragraph, index) => {
+    if (paragraph.trim() === '') {
+      currentY += lineHeight;
+      return;
+    }
+
+    const paragraphLines = doc.splitTextToSize(paragraph, constatWidth - 6);
+    const numberOfLines = paragraphLines.length;
+
+    // If single line or text is not long enough to justify, use left alignment
+    if (numberOfLines <= 1 || doc.getTextWidth(paragraph) < (constatWidth - 6) * 0.75) {
+      doc.text(paragraph.trim(), xPositions[1] + 2, currentY, {
+        align: 'left',
+        maxWidth: constatWidth - 4
+      });
+    } else {
+      // For multi-line paragraphs that are long enough, justify the text
+      doc.text(paragraph.trim(), xPositions[1] + 2, currentY, {
+        align: 'justify',
+        maxWidth: constatWidth - 4,
+        renderingMode: "fill"
+      });
+    }
+
+    currentY += numberOfLines * lineHeight;
+    if (index < constatParagraphs.length - 1) {
+      currentY += lineHeight * 0.2; // Add spacing between paragraphs
+    }
   });
 
   // Status column (centered and colored)
+  const statusVerticalPadding = (rowHeight - statusTextHeight) / 2;
+  const statusStartY = startY + statusVerticalPadding + baselineOffset;
   const statusColor = getStatusColor(status);
   doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
   doc.setFont('helvetica', 'bold');
   statusLines.forEach((line: string, i: number) => {
     const xCenter = xPositions[2] + statusWidth/2;
     const lineWidth = doc.getTextWidth(line);
-    doc.text(line, xCenter - lineWidth/2, textY + (i * lineHeight));
+    doc.text(line, xCenter - lineWidth/2, statusStartY + (i * lineHeight));
   });
 
   // Reset text color
