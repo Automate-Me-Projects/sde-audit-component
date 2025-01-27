@@ -8,6 +8,7 @@
     "@aws-sdk/s3-request-presigner": "^3.721.0",
     "@headlessui/react": "^1.7.18",
     "@tryretool/custom-component-support": "^1.4.0",
+    "exif-js": "^2.3.0",
     "jspdf": "^2.5.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.358.0",

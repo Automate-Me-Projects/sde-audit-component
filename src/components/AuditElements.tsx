@@ -89,118 +89,120 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
           <col style={{ width: '18%' }} />
           <col style={{ width: '13%' }} />
         </colgroup>
-        <tr>
-          <td className="align-top p-0">
-            <div className="flex space-x-2 self-center">
-              <button
-                onClick={() => onElementDelete(expandedElement)}
-                className="text-red-500 hover:text-red-700"
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => onElementDuplicate(expandedElement)}
-                className="text-green-500 hover:text-green-700"
-              >
-                <Copy className="h-5 w-5" />
-              </button>
-            </div>
-          </td>
+        <tbody>
+          <tr>
+            <td className="align-top p-0">
+              <div className="flex space-x-2 self-center">
+                <button
+                  onClick={() => onElementDelete(expandedElement)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => onElementDuplicate(expandedElement)}
+                  className="text-green-500 hover:text-green-700"
+                >
+                  <Copy className="h-5 w-5" />
+                </button>
+              </div>
+            </td>
 
-          <td className="align-top p-0">
-            <div className="bg-gray-50 min-h-[80px] w-full p-2 overflow-hidden">
-              {expandedElement.name}
-            </div>
-          </td>
+            <td className="align-top p-0">
+              <div className="bg-gray-50 min-h-[80px] w-full p-2 overflow-hidden">
+                {expandedElement.name}
+              </div>
+            </td>
 
-          <td className="align-top p-0">
-            <div style={{ position: 'relative', minHeight: '80px' }}>
-              <textarea
-                value={getInputValue('constat')}
-                onChange={(e) => handleInputChange('constat', e.target.value)}
-                style={{
-                  position: 'relative',
-                  minHeight: '80px',
-                  height: '80px',
-                  width: '100%',
-                  padding: '0.5rem',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '0.25rem',
-                  outline: 'none',
-                  resize: 'both'
-                }}
-                className="focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </td>
+            <td className="align-top p-0">
+              <div style={{ position: 'relative', minHeight: '80px' }}>
+                <textarea
+                  value={getInputValue('constat')}
+                  onChange={(e) => handleInputChange('constat', e.target.value)}
+                  style={{
+                    position: 'relative',
+                    minHeight: '80px',
+                    height: '80px',
+                    width: '100%',
+                    padding: '0.5rem',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.25rem',
+                    outline: 'none',
+                    resize: 'both'
+                  }}
+                  className="focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </td>
 
-          <td className="align-top p-0">
-            <div className="min-h-[80px] pt-2">
-              <StatusDropdown
-                value={expandedElement.auditElement?.status || ''}
-                onChange={(value) => onAuditElementChange(elementId, templateElementId, 'status', value)}
-                options={[
-                  'Conforme',
-                  'Non conforme',
-                  'Non conformité majeure',
-                  'Observation',
-                  'Sans objet',
-                  'Pour information',
-                ]}
-              />
-            </div>
-          </td>
+            <td className="align-top p-0">
+              <div className="min-h-[80px] pt-2">
+                <StatusDropdown
+                  value={expandedElement.auditElement?.status || ''}
+                  onChange={(value) => onAuditElementChange(elementId, templateElementId, 'status', value)}
+                  options={[
+                    'Conforme',
+                    'Non conforme',
+                    'Non conformité majeure',
+                    'Observation',
+                    'Sans objet',
+                    'Pour information',
+                  ]}
+                />
+              </div>
+            </td>
 
-          <td className="align-top p-0">
-            <div className="min-h-[80px] pt-2">
-              <select
-                value={expandedElement.auditElement?.actionType || ''}
-                onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionType', e.target.value)}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Type d&apos;action</option>
-                {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
-                  (type) => (
-                    <option key={type} value={type}>
-                      {type}
+            <td className="align-top p-0">
+              <div className="min-h-[80px] pt-2">
+                <select
+                  value={expandedElement.auditElement?.actionType || ''}
+                  onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionType', e.target.value)}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Type d&apos;action</option>
+                  {['Documentaire', 'Travaux', 'Exploitation', 'Contrôle réglementaire'].map(
+                    (type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+            </td>
+
+            <td className="align-top p-0">
+              <div className="min-h-[80px]">
+                <textarea
+                  value={getInputValue('action')}
+                  onChange={(e) => handleInputChange('action', e.target.value)}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical overflow-auto"
+                  style={{
+                    minHeight: '80px',
+                    maxHeight: '400px'
+                  }}
+                />
+              </div>
+            </td>
+
+            <td className="align-top p-0">
+              <div className="min-h-[80px] pt-2">
+                <select
+                  value={expandedElement.auditElement?.actionOwner || ''}
+                  onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionOwner', e.target.value)}
+                  className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Acteur</option>
+                  {actors.map((actor) => (
+                    <option key={actor} value={actor}>
+                      {actor}
                     </option>
-                  )
-                )}
-              </select>
-            </div>
-          </td>
-
-          <td className="align-top p-0">
-            <div className="min-h-[80px]">
-              <textarea
-                value={getInputValue('action')}
-                onChange={(e) => handleInputChange('action', e.target.value)}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical overflow-auto"
-                style={{
-                  minHeight: '80px',
-                  maxHeight: '400px'
-                }}
-              />
-            </div>
-          </td>
-
-          <td className="align-top p-0">
-            <div className="min-h-[80px] pt-2">
-              <select
-                value={expandedElement.auditElement?.actionOwner || ''}
-                onChange={(e) => onAuditElementChange(elementId, templateElementId, 'actionOwner', e.target.value)}
-                className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Acteur</option>
-                {actors.map((actor) => (
-                  <option key={actor} value={actor}>
-                    {actor}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </td>
-        </tr>
+                  ))}
+                </select>
+              </div>
+            </td>
+          </tr>
+        </tbody>
       </table>
     </div>
   );

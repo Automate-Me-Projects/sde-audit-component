@@ -13,6 +13,15 @@ module.exports = {
         'sde-text-green': 'rgb(146, 208, 80)',
         'sde-orange': 'rgb(200, 100, 0)',
       },
+      animation: {
+        'spin': 'spin 1s linear infinite',
+      },
+      keyframes: {
+        'spin': {
+          '0%': { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+      },
     },
   },
   plugins: [

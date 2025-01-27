@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
-import { PDFGeneratorOptions } from '../types';
+import { PDFGeneratorOptions, S3Item } from '../types';
 import { sortByPosition, sortSectionsByPosition, formatDate, sortIcpeTypes } from '../utils/index';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
 import { addHeader, addFooter } from './headerFooter';
 import { addInfoTable } from './tables';
 import { renderCategory } from './categories';
@@ -179,7 +179,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Audit description
   const title = 'DESCRIPTIF DU DÉROULÉ DE L\'AUDIT';
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold'); // Ensure title font is bold
+  doc.setFont('helvetica', 'bold');
   const titleWidth = doc.getTextWidth(title);
   
   const padding = 5; // Padding between border and content
@@ -190,28 +190,69 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Calculate content height and check if we need a page break before starting
   const descriptionText = building?.icpeRegulations || '';
   const textWidth = sectionWidth - (textPadding * 2);
-  // Estimate the number of lines for height calculation
-  const estimatedLines = doc.splitTextToSize(descriptionText, textWidth);
+  
+  // First pass: calculate the height needed for the first page
+  const availableHeight = doc.internal.pageSize.height - FOOTER_HEIGHT - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - 30;
   const lineHeight = 5;
-  const contentHeight = (estimatedLines.length * lineHeight) + (textPadding * 2);
-  const titleHeight = 8;
-  const totalHeight = contentHeight + titleHeight;
+  const linesPerPage = Math.floor(availableHeight / lineHeight);
+  const maxCharsPerLine = Math.floor(textWidth / (doc.getStringUnitWidth('m') * doc.internal.scaleFactor / 1000));
+  
+  // Calculate total height needed for the section
+  const paragraphs = descriptionText.split(/\n/);
+  let totalTextHeight = 0;
+  
+  // Temporarily set text properties to calculate correct heights
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  
+  paragraphs.forEach(paragraph => {
+    if (paragraph.trim() === '') {
+      totalTextHeight += lineHeight;
+    } else {
+      // Get exact dimensions for this paragraph
+      const dimensions = doc.getTextDimensions(paragraph.trim(), {
+        maxWidth: textWidth
+      });
+      totalTextHeight += dimensions.h + (lineHeight * 0.5);
+    }
+  });
 
-  // Check if we need a page break before starting
-  if (yPosition + totalHeight + (padding * 2) > doc.internal.pageSize.height - FOOTER_HEIGHT - 10) {
+  // Add extra padding for text spacing
+  totalTextHeight += textPadding * 2;
+  
+  const titleHeight = 8;
+  // Calculate total section height including all padding and margins
+  const totalSectionHeight = totalTextHeight + titleHeight + (padding * 2);
+  
+  // Check if we need a new page before starting this section
+  const remainingSpace = doc.internal.pageSize.height - FOOTER_HEIGHT - yPosition;
+  console.log('Space check:', {
+    remainingSpace,
+    totalSectionHeight,
+    totalTextHeight,
+    yPosition,
+    pageHeight: doc.internal.pageSize.height
+  });
+  
+  if (remainingSpace < totalSectionHeight) {
+    console.log('Not enough space, adding new page');
     doc.addPage();
     addHeader(doc, building, audit);
     yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
   }
-  
-  // Draw black border around entire section
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(borderWidth);
-  doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, totalHeight + (padding * 2), 'S');
-  
-  // Draw inner content (title + grey background) with padding from border
+
+  // Now draw the background and border with the correct height
   const innerX = MARGIN_X + padding;
   const innerY = yPosition - 5 + padding;
+  
+  // Draw grey background for content area only
+  doc.setFillColor(240, 240, 240);
+  doc.rect(innerX, innerY + titleHeight, sectionWidth, totalTextHeight, 'F');
+  
+  // Draw the border around everything
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(borderWidth);
+  doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, totalSectionHeight, 'S');
   
   // Title with green background
   doc.setFillColor(0, 106, 60);
@@ -220,20 +261,15 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.setFont('helvetica', 'bold'); // Ensure title is bold
   const titleX = innerX + (sectionWidth - titleWidth) / 2;
   doc.text(title, titleX, innerY + 5);
-  
-  // Draw grey background for content
-  doc.setFillColor(240, 240, 240);
-  doc.rect(innerX, innerY + titleHeight, sectionWidth, contentHeight, 'F');
 
-  // Add text content
+  // Prepare text content
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9); // Set font size for table content
   doc.setTextColor(0, 0, 0); // Force black color
-  
-  // Calculate available height on first page
-  const availableHeight = doc.internal.pageSize.height - FOOTER_HEIGHT - (innerY + titleHeight + textPadding) - 20;
-  const linesPerPage = Math.floor(availableHeight / lineHeight);
-  const maxCharsPerLine = Math.floor(textWidth / (doc.getStringUnitWidth('m') * doc.internal.scaleFactor / 1000));
+
+  // Now write the actual text
+  let remainingText = descriptionText;
+  let currentY = innerY + titleHeight + textPadding;
   
   // Function to process text chunk with smart justification
   const processTextChunk = (chunk: string, y: number) => {
@@ -245,53 +281,55 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     paragraphs.forEach((paragraph) => {
       if (paragraph.trim() === '') {
         // Empty line, just add spacing
-        currentY += lineHeight;
+        currentY += 5;
         return;
       }
 
       // For each paragraph, let jsPDF handle the text wrapping and justification
-      const textHeight = doc.getTextDimensions(paragraph, {
+      const textHeight = doc.getTextDimensions(paragraph.trim(), {
         maxWidth: textWidth
       }).h;
 
       // Calculate how many lines this will take
-      const numberOfLines = Math.ceil(textHeight / lineHeight);
+      const numberOfLines = Math.ceil(textHeight / 5);
 
       // If this is a single line or empty, don't justify
       if (numberOfLines <= 1 || !paragraph.trim()) {
         doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
-          align: 'left',
           maxWidth: textWidth
         });
       } else {
         // For multi-line paragraphs, justify the text
         doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
-          align: 'justify',
           maxWidth: textWidth,
           renderingMode: "fill"
         });
       }
 
       // Move to next paragraph position
-      currentY += textHeight + (lineHeight * 0.5);
+      currentY += textHeight + (5 * 0.5);
     });
 
     return currentY;
   };
   
   // Split text into chunks that will fit on each page
-  let remainingText = descriptionText;
-  let currentY = innerY + titleHeight + textPadding;
-  
   while (remainingText.length > 0) {
-    const availableSpace = linesPerPage * maxCharsPerLine;
+    const availableSpace = Math.max(linesPerPage * maxCharsPerLine, 1); // Ensure at least 1 character
     let textChunk = remainingText;
     
     if (remainingText.length > availableSpace) {
       // Find last space within available space
       const lastSpaceIndex = remainingText.lastIndexOf(' ', availableSpace);
-      textChunk = remainingText.substring(0, lastSpaceIndex);
-      remainingText = remainingText.substring(lastSpaceIndex + 1);
+      if (lastSpaceIndex === -1) {
+        // Si pas d'espace trouvé, on coupe au maximum disponible
+        textChunk = remainingText.substring(0, Math.max(availableSpace, 1));
+        console.log('No space found, cutting at:', availableSpace);
+      } else {
+        textChunk = remainingText.substring(0, lastSpaceIndex);
+        console.log('Text split at space:', lastSpaceIndex);
+      }
+      remainingText = remainingText.substring(textChunk.length);
     } else {
       remainingText = '';
     }
@@ -303,21 +341,41 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     if (remainingText.length > 0) {
       doc.addPage();
       addHeader(doc, building, audit);
+      
+      // Calculate height for remaining text
+      const remainingParagraphs = remainingText.split(/\n/);
+      let remainingHeight = 0;
+      remainingParagraphs.forEach(paragraph => {
+        if (paragraph.trim() === '') {
+          remainingHeight += 5;
+        } else {
+          const textHeight = doc.getTextDimensions(paragraph.trim(), {
+            maxWidth: textWidth
+          }).h;
+          remainingHeight += textHeight + (5 * 0.5);
+        }
+      });
+      
+      const pageHeight = Math.min(
+        remainingHeight + (textPadding * 2),
+        doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 20
+      );
+      
       currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + textPadding;
       
-      // Draw border and background on new page
+      // Draw border and background sized to remaining content
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(borderWidth);
-      doc.rect(MARGIN_X, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN, CONTENT_WIDTH, doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 10, 'S');
+      doc.rect(MARGIN_X, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN, CONTENT_WIDTH, pageHeight, 'S');
       
       doc.setFillColor(240, 240, 240);
-      doc.rect(MARGIN_X + padding, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + padding, sectionWidth, doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 20, 'F');
+      doc.rect(MARGIN_X + padding, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + padding, sectionWidth, pageHeight - (padding * 2), 'F');
       
       doc.setTextColor(0, 0, 0);
     }
   }
 
-  yPosition += totalHeight + (padding * 2) + 5;
+  yPosition += totalSectionHeight + (padding * 2) + 5;
 
   // ICPE Table
   doc.addPage();
@@ -529,135 +587,136 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       doc.text(`${lastSectionNumber}.1 Photographies`, MARGIN_X, yPosition);
       yPosition += 15;
 
-      const imagesPerRow = 2; 
-      const padding = 2; 
-      const borderWidth = 0.1; 
-      const spacing = 8; 
-      const maxWidth = (CONTENT_WIDTH / imagesPerRow) - (padding * 2) - spacing; 
-      let currentImageInRow = 0;
+      const imagesPerRow = 2;
+      const imageWidth = (CONTENT_WIDTH - (imagesPerRow - 1) * 5) / imagesPerRow; // Réduit l'espacement entre les images à 5mm
+      const imageHeight = imageWidth * 0.75; // 4:3 ratio
+      const padding = 2; // Réduit le padding de 5mm à 2mm
+      const bannerHeight = 8; // Réduit légèrement la hauteur du bandeau
+      const totalImageHeight = imageHeight + bannerHeight + (padding * 2);
+      let currentRow = 0;
+      let currentCol = 0;
+      let currentPage = 1;
+
+      const processImageWithOrientation = async (
+        image: S3Item,
+        xPos: number,
+        yPos: number,
+        loadedImage: HTMLImageElement
+      ) => {
+        const isPortrait = loadedImage.height > loadedImage.width;
+
+        if (isPortrait) {
+          // Pour une image portrait, on adapte la hauteur au cadre
+          const maxHeight = imageHeight;
+          const aspectRatio = loadedImage.width / loadedImage.height;
+          const newHeight = maxHeight;
+          const newWidth = newHeight * aspectRatio;
+          const xOffset = (imageWidth - newWidth) / 2;
+
+          doc.addImage(
+            image.url,
+            'JPEG',
+            xPos + padding + xOffset,
+            yPos + bannerHeight + padding,
+            newWidth,
+            newHeight,
+            undefined,
+            'FAST'
+          );
+        } else {
+          // Image paysage - dimensions standard
+          doc.addImage(
+            image.url,
+            'JPEG',
+            xPos + padding,
+            yPos + bannerHeight + padding,
+            imageWidth,
+            imageHeight,
+            undefined,
+            'FAST'
+          );
+        }
+      };
 
       for (const image of images) {
-        if (yPosition > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        // Check if we need a new page
+        if (yPosition + totalImageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
           doc.addPage();
+          currentPage++;
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
-          currentImageInRow = 0;
+          currentRow = 0;
+          currentCol = 0;
         }
 
-        const xPosition = MARGIN_X + (currentImageInRow * (maxWidth + (padding * 2) + spacing));
+        const xPosition = MARGIN_X + (currentCol * (imageWidth + 10));
+        const currentYPosition = yPosition + (currentRow * (totalImageHeight + 10));
 
         try {
-          const img = new Image();
-          await new Promise((resolve, reject) => {
-            img.onload = () => {
-              try {
-                const pageWidth = doc.internal.pageSize.width;
-                const pageHeight = doc.internal.pageSize.height;
-                const imgAspectRatio = img.width / img.height;
-                
-                let imageWidth = pageWidth - (MARGIN_X * 2);
-                let imageHeight = imageWidth / imgAspectRatio;
-                
-                // Adjust if image is too tall
-                if (imageHeight > pageHeight - FOOTER_HEIGHT - yPosition) {
-                  imageHeight = pageHeight - FOOTER_HEIGHT - yPosition;
-                  imageWidth = imageHeight * imgAspectRatio;
-                }
-                
-                const bannerHeight = 12; 
-                doc.setFillColor(235, 241, 217); 
-                doc.rect(
-                  xPosition + padding, 
-                  yPosition + padding,
-                  imageWidth,
-                  bannerHeight,
-                  'F'
-                );
-
-                const imageName = image.name.replace(/\.[^/.]+$/, ""); 
-                doc.setFontSize(10); 
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(0, 0, 0);
-                
-                const textWidth = doc.getTextWidth(imageName);
-                const textX = xPosition + padding + (imageWidth - textWidth) / 2;
-                const textY = yPosition + padding + bannerHeight / 2 + 2;
-                doc.text(imageName, textX, textY);
-
-                doc.setDrawColor(200, 200, 200);
-                doc.setLineWidth(borderWidth);
-                doc.rect(
-                  xPosition, 
-                  yPosition, 
-                  imageWidth + (padding * 2), 
-                  imageHeight + bannerHeight + (padding * 2)
-                );
-
-                doc.addImage({ 
-                  imageData: img, 
-                  x: xPosition + padding, 
-                  y: yPosition + padding + bannerHeight,
-                  width: imageWidth,
-                  height: imageHeight,
-                  compression: 'FAST'
-                });
-
-                doc.setFont('helvetica', 'normal');
-                resolve(null);
-              } catch (error) {
-                console.error('Error adding image to PDF:', error);
-                reject(error);
-              }
-            };
-            img.onerror = (error) => {
-              console.error('Error loading image:', error);
-              reject(error);
-            };
-            
-            setTimeout(() => {
-              img.src = image.url;
-            }, 100);
+          const loadedImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = image.url;
           });
 
-          currentImageInRow++;
-          if (currentImageInRow === imagesPerRow) {
-            currentImageInRow = 0;
-            yPosition += maxWidth + (padding * 2) + 20; 
+          if (loadedImage && loadedImage.width && loadedImage.height) {
+            await processImageWithOrientation(image, xPosition, currentYPosition, loadedImage);
           }
         } catch (error) {
-          console.error('Error processing image:', error);
-          const placeholderHeight = maxWidth * 0.75; 
-          
-          doc.setDrawColor(200, 200, 200);
-          doc.setLineWidth(borderWidth);
-          doc.rect(
-            xPosition, 
-            yPosition, 
-            maxWidth + (padding * 2), 
-            placeholderHeight + (padding * 2)
-          );
-          
-          doc.setFillColor(240, 240, 240);
-          doc.rect(
-            xPosition + padding, 
-            yPosition + padding, 
-            maxWidth, 
-            placeholderHeight, 
-            'F'
-          );
-          
-          doc.setFontSize(10);
-          doc.setTextColor(100, 100, 100);
-          doc.text(
-            'Image non disponible', 
-            xPosition + padding + 5, 
-            yPosition + padding + (placeholderHeight / 2)
-          );
+          console.error(`Erreur de traitement pour l'image ${image.name}:`, error);
+        }
 
-          currentImageInRow++;
-          if (currentImageInRow === imagesPerRow) {
-            currentImageInRow = 0;
-            yPosition += placeholderHeight + (padding * 2) + 20;
+        // Draw banner and border
+        doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
+        doc.rect(
+          xPosition,
+          currentYPosition,
+          imageWidth + (padding * 2),
+          bannerHeight,
+          'F'
+        );
+
+        doc.setDrawColor(0, 106, 60);
+        doc.setLineWidth(0.5);
+        doc.rect(
+          xPosition,
+          currentYPosition,
+          imageWidth + (padding * 2),
+          bannerHeight
+        );
+
+        const numberMatch = image.name.match(/\d+/);
+        const photoNumber = numberMatch ? numberMatch[0] : '';
+        const bannerText = `Photo ${photoNumber}`;
+
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(0, 0, 0);
+        const textWidth = doc.getTextWidth(bannerText);
+        doc.text(
+          bannerText,
+          xPosition + ((imageWidth + (padding * 2)) - textWidth) / 2,
+          currentYPosition + bannerHeight - 2.5
+        );
+
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.rect(
+          xPosition,
+          currentYPosition,
+          imageWidth + (padding * 2),
+          totalImageHeight
+        );
+
+        // Update position for next image
+        currentCol++;
+        if (currentCol >= imagesPerRow) {
+          currentCol = 0;
+          currentRow++;
+          if (currentRow >= 2) {
+            yPosition += (totalImageHeight + 10) * 2;
+            currentRow = 0;
           }
         }
       }

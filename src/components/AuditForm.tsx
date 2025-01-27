@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Plus, Eye, ArrowDownToLine } from 'lucide-react';
+import { Plus, Eye, ArrowDownToLine, Loader2 } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
 import { ElementDropdown } from './ElementDropdown';
 import { AddElementModal } from './AddElementModal';
@@ -35,6 +35,8 @@ const AuditFormComponent = React.memo(({
   const [localIcpeRegulations, setLocalIcpeRegulations] = useState(building?.icpeRegulations ?? '');
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isVisualizing, setIsVisualizing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -162,33 +164,9 @@ const AuditFormComponent = React.memo(({
     setIsModalOpen(false);
   }, [onTemplateElementAdd]);
 
-  const handleGeneratePDF = useCallback(async () => {
+  const handleVisualizePDF = async () => {
     try {
-      const doc = await generateAuditPDF({
-        building,
-        audit,
-        sections,
-        categories,
-        subCategories,
-        regulatories,
-        infoTableRows,
-        arretePrefectoralRows,
-        exploitationRows,
-        auditRows,
-        templateElements,
-        auditElements,
-        images,
-        files
-      });
-      doc.save(`audit-${building.name}-${audit.year}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      // Add appropriate error handling here
-    }
-  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images, files]);
-
-  const handleVisualizePDF = useCallback(async () => {
-    try {
+      setIsVisualizing(true);
       const doc = await generateAuditPDF({
         building,
         audit,
@@ -212,12 +190,55 @@ const AuditFormComponent = React.memo(({
       setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      // Add appropriate error handling here
+    } finally {
+      setIsVisualizing(false);
     }
-  }, [building, audit, sections, categories, subCategories, regulatories, infoTableRows, arretePrefectoralRows, exploitationRows, auditRows, templateElements, auditElements, images, files]);
+  };
+
+  const handleGeneratePDF = async () => {
+    try {
+      setIsGenerating(true);
+      const doc = await generateAuditPDF({
+        building,
+        audit,
+        sections,
+        categories,
+        subCategories,
+        regulatories,
+        infoTableRows,
+        arretePrefectoralRows,
+        exploitationRows,
+        auditRows,
+        templateElements,
+        auditElements,
+        images,
+        files
+      });
+      doc.save(`audit-${building.name}-${audit.year}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 absolute inset-0">
+      <style>
+        {`
+          .spinner {
+            animation: rotate 1s linear infinite;
+          }
+          @keyframes rotate {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
       <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] p-4 z-50 shadow-md">
         <h1 className="text-[rgb(146,208,80)] text-2xl font-bold mb-4">
           {building.name} - {audit.year}
@@ -249,16 +270,26 @@ const AuditFormComponent = React.memo(({
           </button>
           <button
             onClick={handleVisualizePDF}
-            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 flex items-center gap-3"
+            disabled={isVisualizing}
+            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-3"
           >
-            <Eye className="h-5 w-5" />
+            {isVisualizing ? (
+              <Loader2 className="h-5 w-5 spinner" />
+            ) : (
+              <Eye className="h-5 w-5" />
+            )}
             PDF
           </button>
           <button
             onClick={handleGeneratePDF}
-            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 flex items-center gap-3"
+            disabled={isGenerating}
+            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-3"
           >
-            <ArrowDownToLine className="h-5 w-5" />
+            {isGenerating ? (
+              <Loader2 className="h-5 w-5 spinner" />
+            ) : (
+              <ArrowDownToLine className="h-5 w-5" />
+            )}
             PDF
           </button>
         </div>
