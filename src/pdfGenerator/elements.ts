@@ -11,6 +11,8 @@ const getStatusColor = (status: string): [number, number, number] => {
       return [249, 115, 22]; // orange-500 (sde-orange)
     case 'Non conformité majeure':
       return [239, 68, 68]; // red-500
+    case 'Observation':
+      return [225, 188, 75]; // yellow
     default:
       return [128, 128, 128]; // gray-300
   }
@@ -159,9 +161,9 @@ export const expandTemplateElements = (elements: TemplateElement[], auditElement
     
     // Create an expanded element for each matching audit element
     matchingAuditElements.forEach(auditElement => {
-      // Skip if we've already processed this audit element or if constat and status are empty
+      // Skip if we've already processed this audit element or if status is empty
       if (processedAuditElements.has(auditElement._id) || 
-          (!auditElement?.constat?.trim() && !auditElement?.status?.trim())) {
+          !auditElement?.status?.trim()) {
         return;
       }
 
