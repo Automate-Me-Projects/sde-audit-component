@@ -596,6 +596,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       let currentRow = 0;
       let currentCol = 0;
       let currentPage = 1;
+      let imagesOnCurrentPage = 0;
 
       const processImageWithOrientation = async (
         image: S3Item,
@@ -640,13 +641,15 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
 
       for (const image of images) {
         // Check if we need a new page
-        if (yPosition + totalImageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        const maxImagesPerPage = currentPage === 1 ? 4 : 6;
+        if (imagesOnCurrentPage >= maxImagesPerPage || yPosition + totalImageHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
           doc.addPage();
           currentPage++;
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
           currentRow = 0;
           currentCol = 0;
+          imagesOnCurrentPage = 0;
         }
 
         const xPosition = MARGIN_X + (currentCol * (imageWidth + 10));
@@ -719,6 +722,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
             currentRow = 0;
           }
         }
+        imagesOnCurrentPage++;
       }
     }
 
