@@ -148,9 +148,16 @@ export const generateSynthese = (
   };
 
   // Function to render data for an actionOwner
-  const renderActionOwnerData = (data: typeof nonAssigneData, actionOwner: string) => {
+  const renderActionOwnerData = (data: typeof nonAssigneData, actionOwner: string, isFirst: boolean) => {
     if (!data || (data.nonConformiteMajeure.length === 0 && data.nonConformes.length === 0 && data.observations.length === 0)) {
       return;
+    }
+
+    // Add a new page for each new actionOwner except the first one
+    if (!isFirst) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
     }
 
     // Check space for actor + first section (if any exists)
@@ -178,6 +185,24 @@ export const generateSynthese = (
 
     // Render non-conformités majeures if any exist
     if (data.nonConformiteMajeure.length > 0) {
+      // Calculate height needed for title and first item
+      const titleHeight = 12; // Height for the title section
+      const item = data.nonConformiteMajeure[0];
+      const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
+      const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
+      const contentHeight = Math.max(constatHeight, actionHeight);
+      const itemTitleText = `NCM1 - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+      const itemTitleLines = doc.splitTextToSize(itemTitleText, CONTENT_WIDTH - 20);
+      const itemTitleHeight = itemTitleLines.length * 6;
+      const totalNeededHeight = titleHeight + contentHeight + itemTitleHeight + 24; // Adding some padding
+
+      // Check if we need a new page
+      if (yPosition + totalNeededHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        doc.addPage();
+        addHeader(doc, building, audit);
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      }
+
       doc.setFillColor(235, 51, 35); // Updated red color
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
@@ -196,9 +221,8 @@ export const generateSynthese = (
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
-        const totalHeight = contentHeight + 20;
 
-        yPosition = checkAndAddNewPage(doc, yPosition, totalHeight, building, audit);
+        yPosition = checkAndAddNewPage(doc, yPosition, contentHeight + 30, building, audit);
 
         const startY = yPosition;
 
@@ -206,24 +230,35 @@ export const generateSynthese = (
         const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
         const titleHeight = lines.length * 6; // Each line is approximately 6mm high
 
-        // Adjust total height to account for wrapped title
-        const adjustedTotalHeight = totalHeight + (titleHeight - 8); // Subtract original title height (8mm)
+        // Définition des espacements
+        const titlePadding = 4; // Padding pour le titre
+        const contentTopMargin = 8; // Espace entre le titre et le début du contenu
+        const contentBottomMargin = 4; // Espace après le contenu
+        const labelHeight = 4; // Hauteur du label (Constat:/Action:)
 
+        // Calcul des hauteurs
+        const contentAreaHeight = contentHeight + labelHeight;
+        const adjustedTotalHeight = titleHeight + titlePadding + contentTopMargin + contentAreaHeight + contentBottomMargin;
+
+        // Background principal
         doc.setFillColor(252, 242, 242);
         doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
 
+        // Background du titre
         doc.setFillColor(255, 235, 235);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + titlePadding, 2, 2, 'F');
         doc.setTextColor(180, 0, 0);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9); // Set consistent font size for title
+        doc.setFontSize(9);
         doc.text(lines, MARGIN_X + 10, startY + 6);
 
+        // Ligne de séparation verticale
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
+        doc.line(separatorX, startY + titleHeight + titlePadding, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + titleHeight + 8;
+        // Position du contenu (après le titre et le contentTopMargin)
+        const contentY = startY + titleHeight + titlePadding + contentTopMargin;
         renderWrappedText(
           doc,
           item.constat,
@@ -251,6 +286,24 @@ export const generateSynthese = (
     }
 
     if (data.nonConformes.length > 0) {
+      // Calculate height needed for title and first item
+      const titleHeight = 12; // Height for the title section
+      const item = data.nonConformes[0];
+      const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
+      const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
+      const contentHeight = Math.max(constatHeight, actionHeight);
+      const itemTitleText = `NC1 - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+      const itemTitleLines = doc.splitTextToSize(itemTitleText, CONTENT_WIDTH - 20);
+      const itemTitleHeight = itemTitleLines.length * 6;
+      const totalNeededHeight = titleHeight + contentHeight + itemTitleHeight + 24; // Adding some padding
+
+      // Check if we need a new page
+      if (yPosition + totalNeededHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        doc.addPage();
+        addHeader(doc, building, audit);
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      }
+
       doc.setFillColor(200, 100, 0); // Orange background
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
@@ -269,34 +322,43 @@ export const generateSynthese = (
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
-        const totalHeight = contentHeight + 20;
 
-        yPosition = checkAndAddNewPage(doc, yPosition, totalHeight, building, audit);
+        yPosition = checkAndAddNewPage(doc, yPosition, contentHeight + 30, building, audit);
 
         const startY = yPosition;
 
         const titleText = `NC${index + 1} - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
         const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
-        const titleHeight = lines.length * 6; // Each line is approximately 6mm high
+        const titleHeight = lines.length * 6;
 
-        // Adjust total height to account for wrapped title
-        const adjustedTotalHeight = totalHeight + (titleHeight - 8); // Subtract original title height (8mm)
+        // Définition des espacements
+        const titlePadding = 4; // Padding pour le titre
+        const contentTopMargin = 8; // Espace entre le titre et le début du contenu
+        const contentBottomMargin = 4; // Espace après le contenu
+        const labelHeight = 4; // Hauteur du label (Constat:/Action:)
 
+        // Calcul des hauteurs
+        const contentAreaHeight = contentHeight + labelHeight;
+        const adjustedTotalHeight = titleHeight + titlePadding + contentTopMargin + contentAreaHeight + contentBottomMargin;
+
+        // Background principal
         doc.setFillColor(252, 248, 227);
         doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
 
+        // Background du titre
         doc.setFillColor(255, 248, 227);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + titlePadding, 2, 2, 'F');
         doc.setTextColor(200, 100, 0);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9); // Set consistent font size for title
+        doc.setFontSize(9);
         doc.text(lines, MARGIN_X + 10, startY + 6);
 
+        // Ligne de séparation verticale
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
+        doc.line(separatorX, startY + titleHeight + titlePadding, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + titleHeight + 8;
+        const contentY = startY + titleHeight + titlePadding + contentTopMargin;
         renderWrappedText(
           doc,
           item.constat,
@@ -324,6 +386,24 @@ export const generateSynthese = (
     }
 
     if (data.observations.length > 0) {
+      // Calculate height needed for title and first item
+      const titleHeight = 12; // Height for the title section
+      const item = data.observations[0];
+      const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
+      const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
+      const contentHeight = Math.max(constatHeight, actionHeight);
+      const itemTitleText = `O1 - ${item.categoryName ? item.categoryName + ' - ' : ''}${String(item.name)}`;
+      const itemTitleLines = doc.splitTextToSize(itemTitleText, CONTENT_WIDTH - 20);
+      const itemTitleHeight = itemTitleLines.length * 6;
+      const totalNeededHeight = titleHeight + contentHeight + itemTitleHeight + 24; // Adding some padding
+
+      // Check if we need a new page
+      if (yPosition + totalNeededHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+        doc.addPage();
+        addHeader(doc, building, audit);
+        yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+      }
+
       doc.setFillColor(225, 188, 75); // Updated yellow color
       doc.rect(MARGIN_X, yPosition - 2, CONTENT_WIDTH, 10, 'F');
       doc.setFontSize(10);
@@ -342,9 +422,8 @@ export const generateSynthese = (
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
-        const totalHeight = contentHeight + 20;
 
-        yPosition = checkAndAddNewPage(doc, yPosition, totalHeight, building, audit);
+        yPosition = checkAndAddNewPage(doc, yPosition, contentHeight + 30, building, audit);
 
         const startY = yPosition;
 
@@ -352,24 +431,35 @@ export const generateSynthese = (
         const lines = doc.splitTextToSize(titleText, CONTENT_WIDTH - 20);
         const titleHeight = lines.length * 6;
 
-        // Adjust total height to account for wrapped title
-        const adjustedTotalHeight = totalHeight + (titleHeight - 8);
+        // Définition des espacements
+        const titlePadding = 4; // Padding pour le titre
+        const contentTopMargin = 8; // Espace entre le titre et le début du contenu
+        const contentBottomMargin = 4; // Espace après le contenu
+        const labelHeight = 4; // Hauteur du label (Constat:/Action:)
 
+        // Calcul des hauteurs
+        const contentAreaHeight = contentHeight + labelHeight;
+        const adjustedTotalHeight = titleHeight + titlePadding + contentTopMargin + contentAreaHeight + contentBottomMargin;
+
+        // Background principal
         doc.setFillColor(255, 248, 220); // Light yellow background for the main cell
         doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, adjustedTotalHeight, 2, 2, 'F');
 
+        // Background du titre
         doc.setFillColor(255, 240, 180);
-        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + 4, 2, 2, 'F');
+        doc.roundedRect(MARGIN_X + 5, startY, CONTENT_WIDTH - 10, titleHeight + titlePadding, 2, 2, 'F');
         doc.setTextColor(100, 100, 100);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9); // Set consistent font size for title
+        doc.setFontSize(9);
         doc.text(lines, MARGIN_X + 10, startY + 6);
 
+        // Ligne de séparation verticale
         const separatorX = MARGIN_X + 5 + ((CONTENT_WIDTH - 10) / 2);
         doc.setDrawColor(220, 220, 220);
-        doc.line(separatorX, startY + titleHeight + 4, separatorX, startY + adjustedTotalHeight);
+        doc.line(separatorX, startY + titleHeight + titlePadding, separatorX, startY + adjustedTotalHeight);
 
-        const contentY = startY + titleHeight + 8;
+        // Position du contenu
+        const contentY = startY + titleHeight + titlePadding + contentTopMargin;
         renderWrappedText(
           doc,
           item.constat,
@@ -396,13 +486,15 @@ export const generateSynthese = (
   };
 
   // Render data for each actionOwner
+  let isFirstActionOwner = true;
   Array.from(actionOwnerMap.entries()).forEach(([actionOwner, data]) => {
-    renderActionOwnerData(data, actionOwner);
+    renderActionOwnerData(data, actionOwner, isFirstActionOwner);
+    isFirstActionOwner = false;
   });
 
   // Render non-assigned data at the end if it exists
   if (nonAssigneData) {
-    renderActionOwnerData(nonAssigneData, 'Non assigné');
+    renderActionOwnerData(nonAssigneData, 'Non assigné', false);
   }
 
   return yPosition;
