@@ -3,7 +3,7 @@ import { Category, SubCategory, Building, Audit, TemplateElement, AuditElement, 
 import { sortByPosition } from '../utils/index';
 import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
 import { addHeader } from './headerFooter';
-import { renderRegulatory } from './regulatory';
+import { renderMultipleRegulatories } from './regulatory';
 import { calculateRowHeight, renderAuditElementRow, getTemplateElementsForSubCategory, getDirectTemplateElements, expandTemplateElements } from './elements';
 
 export const renderSubCategory = (subCategory: SubCategory, templateElements: TemplateElement[], building: Building, audit: Audit, auditElements: AuditElement[], regulatories: Regulatory[], doc: jsPDF, yPosition: number): number | null => {
@@ -23,11 +23,37 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   let minRequiredHeight = titleHeight;
   
   // Add regulatory height if exists
-  const regulatory = regulatories.find(r => r.subCategoryId === subCategory._id);
-  if (regulatory) {
-    const regulatoryText = String(regulatory.text || '');
-    const regulatoryLines = doc.splitTextToSize(regulatoryText, CONTENT_WIDTH - 8);
-    minRequiredHeight += regulatoryLines.length * 3.5 + 3;
+  const subCategoryRegulatories: Regulatory[] = regulatories.filter(r => r.subCategoryId === subCategory._id);
+  if (subCategoryRegulatories.length > 0) {
+    // Pre-calculate regulatory heights more accurately
+    let regulatoryHeight = 0;
+    
+    for (const regulatory of subCategoryRegulatories) {
+      const text = String(regulatory.text || '');
+      const paragraphs = text.split(/\n/);
+      
+      let textHeight = 0;
+      const textWidth = CONTENT_WIDTH - 12;
+      const lineHeight = 3.5;
+      const cellPadding = 3;
+      
+      paragraphs.forEach(paragraph => {
+        if (paragraph.trim() === '') {
+          textHeight += lineHeight;
+        } else {
+          const textDimensions = doc.getTextDimensions(paragraph, { maxWidth: textWidth });
+          textHeight += textDimensions.h;
+          if (paragraph !== paragraphs[paragraphs.length - 1]) {
+            textHeight += lineHeight * 0.2;
+          }
+        }
+      });
+      
+      const height = Math.max(textHeight + (cellPadding * 2), lineHeight * 2);
+      regulatoryHeight += height;
+    }
+    
+    minRequiredHeight += regulatoryHeight;
   }
 
   // Add height of first element (mandatory)
@@ -63,8 +89,8 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   currentY += titleHeight;
 
   // Render regulatory if exists
-  if (regulatory) {
-    const height = renderRegulatory(regulatory, doc, currentY, building, audit);
+  if (subCategoryRegulatories.length > 0) {
+    const height = renderMultipleRegulatories(subCategoryRegulatories, doc, currentY, building, audit);
     currentY += height;
   }
 
@@ -141,17 +167,44 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
   let minRequiredHeight = titleHeight;
 
   // Add regulatory height if exists
-  let categoryRegulatory = null;
+  let categoryRegulatories: Regulatory[] = [];
   if (sectionId) {
-    categoryRegulatory = regulatories.find(
+    categoryRegulatories = regulatories.filter(
       r => r.sectionId === sectionId && 
            r.categoryId === category._id && 
            (!r.subCategoryId || r.subCategoryId === "null" || r.subCategoryId === "")
     );
-    if (categoryRegulatory) {
-      const text = String(categoryRegulatory.text || '');
-      const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 8);
-      minRequiredHeight += lines.length * 3.5 + 3;
+    
+    // Pre-calculate regulatory heights more accurately
+    if (categoryRegulatories.length > 0) {
+      let regulatoryHeight = 0;
+      
+      for (const regulatory of categoryRegulatories) {
+        const text = String(regulatory.text || '');
+        const paragraphs = text.split(/\n/);
+        
+        let textHeight = 0;
+        const textWidth = CONTENT_WIDTH - 12;
+        const lineHeight = 3.5;
+        const cellPadding = 3;
+        
+        paragraphs.forEach(paragraph => {
+          if (paragraph.trim() === '') {
+            textHeight += lineHeight;
+          } else {
+            const textDimensions = doc.getTextDimensions(paragraph, { maxWidth: textWidth });
+            textHeight += textDimensions.h;
+            if (paragraph !== paragraphs[paragraphs.length - 1]) {
+              textHeight += lineHeight * 0.2;
+            }
+          }
+        });
+        
+        const height = Math.max(textHeight + (cellPadding * 2), lineHeight * 2);
+        regulatoryHeight += height;
+      }
+      
+      minRequiredHeight += regulatoryHeight;
     }
   }
 
@@ -163,11 +216,37 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
     
     minRequiredHeight += titleHeight; // Subcategory title
     
-    const subCategoryRegulatory = regulatories.find(r => r.subCategoryId === firstSubCategory._id);
-    if (subCategoryRegulatory) {
-      const text = String(subCategoryRegulatory.text || '');
-      const lines = doc.splitTextToSize(text, CONTENT_WIDTH - 8);
-      minRequiredHeight += lines.length * 3.5 + 3;
+    const subCategoryRegulatories: Regulatory[] = regulatories.filter(r => r.subCategoryId === firstSubCategory._id);
+    if (subCategoryRegulatories.length > 0) {
+      // Pre-calculate regulatory heights more accurately
+      let regulatoryHeight = 0;
+      
+      for (const regulatory of subCategoryRegulatories) {
+        const text = String(regulatory.text || '');
+        const paragraphs = text.split(/\n/);
+        
+        let textHeight = 0;
+        const textWidth = CONTENT_WIDTH - 12;
+        const lineHeight = 3.5;
+        const cellPadding = 3;
+        
+        paragraphs.forEach(paragraph => {
+          if (paragraph.trim() === '') {
+            textHeight += lineHeight;
+          } else {
+            const textDimensions = doc.getTextDimensions(paragraph, { maxWidth: textWidth });
+            textHeight += textDimensions.h;
+            if (paragraph !== paragraphs[paragraphs.length - 1]) {
+              textHeight += lineHeight * 0.2;
+            }
+          }
+        });
+        
+        const height = Math.max(textHeight + (cellPadding * 2), lineHeight * 2);
+        regulatoryHeight += height;
+      }
+      
+      minRequiredHeight += regulatoryHeight;
     }
     
     if (expandedSubCategoryElements.length > 0) {
@@ -201,8 +280,8 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
   yPosition += titleHeight;
 
   // Render regulatory if exists
-  if (categoryRegulatory) {
-    const height = renderRegulatory(categoryRegulatory, doc, yPosition, building, audit);
+  if (categoryRegulatories.length > 0) {
+    const height = renderMultipleRegulatories(categoryRegulatories, doc, yPosition, building, audit);
     yPosition += height;
   }
 

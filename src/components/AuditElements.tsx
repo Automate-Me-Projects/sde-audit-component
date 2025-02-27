@@ -268,7 +268,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   };
 
   const renderRegulatory = (sectionId: string | null | undefined, categoryId: string, subCategoryId?: string) => {
-    const regulatory = regulatories.find(
+    const matchingRegulatories = regulatories.filter(
       r =>
         r.sectionId === sectionId &&
         r.categoryId === categoryId &&
@@ -278,11 +278,21 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         )
     );
 
-    if (!regulatory) return null;
+    if (matchingRegulatories.length === 0) return null;
 
     return (
       <div className="bg-gray-100 p-4 my-2 italic text-black">
-        {regulatory.text}
+        {matchingRegulatories.map((regulatory, index) => (
+          <React.Fragment key={regulatory._id || index}>
+            {regulatory.text}
+            {index < matchingRegulatories.length - 1 && (
+              <>
+                <br />
+                <br />
+              </>
+            )}
+          </React.Fragment>
+        ))}
       </div>
     );
   };

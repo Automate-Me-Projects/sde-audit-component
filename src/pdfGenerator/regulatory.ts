@@ -89,3 +89,67 @@ export const renderRegulatory = (regulatory: Regulatory, doc: jsPDF, yPosition: 
   
   return height;
 };
+
+export const renderMultipleRegulatories = (regulatories: Regulatory[], doc: jsPDF, yPosition: number, building: Building, audit: Audit): number => {
+  if (!regulatories || regulatories.length === 0) {
+    return 0;
+  }
+
+  let totalHeight = 0;
+  let currentY = yPosition;
+
+  // Pre-calculate heights for all regulatories to check if we need a page break
+  const heights: number[] = [];
+  let totalCalculatedHeight = 0;
+  
+  for (const regulatory of regulatories) {
+    // Calculate height without rendering
+    const text = String(regulatory.text || '');
+    const paragraphs = text.split(/\n/);
+    
+    let textHeight = 0;
+    const textWidth = CONTENT_WIDTH - 12; // Subtract left and right padding
+    const lineHeight = 3.5;
+    const cellPadding = 3;
+    
+    paragraphs.forEach(paragraph => {
+      if (paragraph.trim() === '') {
+        textHeight += lineHeight;
+      } else {
+        const textDimensions = doc.getTextDimensions(paragraph, { maxWidth: textWidth });
+        textHeight += textDimensions.h;
+        if (paragraph !== paragraphs[paragraphs.length - 1]) {
+          textHeight += lineHeight * 0.2; // Add spacing only between paragraphs
+        }
+      }
+    });
+    
+    const height = Math.max(textHeight + (cellPadding * 2), lineHeight * 2);
+    heights.push(height);
+    totalCalculatedHeight += height;
+  }
+  
+  // Check if all regulatories can fit on the current page
+  if (currentY + totalCalculatedHeight > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+    // If they can't fit, add a new page
+    doc.addPage();
+    addHeader(doc, building, audit);
+    currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+  }
+
+  // Render each regulatory one after another
+  for (let i = 0; i < regulatories.length; i++) {
+    // Check if this individual regulatory needs a page break
+    if (currentY + heights[i] > doc.internal.pageSize.height - FOOTER_HEIGHT) {
+      doc.addPage();
+      addHeader(doc, building, audit);
+      currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
+    }
+    
+    const height = renderRegulatory(regulatories[i], doc, currentY, building, audit);
+    currentY += height;
+    totalHeight += height;
+  }
+
+  return totalHeight;
+};
