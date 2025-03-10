@@ -530,7 +530,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     yPosition += rowHeight;
   });
 
-  yPosition = generateSynthese(doc, building, audit, auditElements, templateElements, categories, subCategories);
+  yPosition = generateSynthese(doc, building, audit, auditElements, templateElements, categories, subCategories, sections);
 
   if (audit.templateVersion === 2) {
     // Render by sections

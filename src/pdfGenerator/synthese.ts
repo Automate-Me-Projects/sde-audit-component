@@ -1,7 +1,19 @@
 import { jsPDF } from 'jspdf';
-import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory } from '../types';
+import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory, Section } from '../types';
 import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN } from './constants';
 import { addHeader } from './headerFooter';
+import { sortTemplateElements, sortSectionsByPosition } from '../utils';
+
+// Helper function pour obtenir la position correcte en fonction de la version du template
+const getPositionFromVersion = (
+  positionArray: readonly number[] | undefined,
+  templateVersionArray: readonly number[] | undefined,
+  currentTemplateVersion: number
+): number => {
+  if (!positionArray?.length || !templateVersionArray?.length) return Infinity;
+  const versionIndex = templateVersionArray.indexOf(currentTemplateVersion);
+  return versionIndex === -1 ? Infinity : positionArray[versionIndex];
+};
 
 // Function to check if we need a new page
 const checkAndAddNewPage = (doc: jsPDF, yPosition: number, requiredSpace: number, building: Building, audit: Audit) => {
@@ -46,7 +58,8 @@ export const generateSynthese = (
   auditElements: AuditElement[],
   templateElements: TemplateElement[],
   categories: Category[],
-  subCategories: SubCategory[]
+  subCategories: SubCategory[],
+  sections: Section[] = []
 ): number => {
   doc.addPage();
   addHeader(doc, building, audit);
@@ -59,26 +72,183 @@ export const generateSynthese = (
 
   // First, collect all unique actionOwners from auditElements
   const actionOwnerMap = new Map<string, {
-    nonConformiteMajeure: Array<{name: string, constat: string, action: string, categoryName?: string}>,
-    nonConformes: Array<{name: string, constat: string, action: string, categoryName?: string}>,
-    observations: Array<{name: string, constat: string, action: string, categoryName?: string}>
+    nonConformiteMajeure: Array<{name: string, constat: string, action: string, categoryName?: string, position: number, templateElementId?: string}>,
+    nonConformes: Array<{name: string, constat: string, action: string, categoryName?: string, position: number, templateElementId?: string}>,
+    observations: Array<{name: string, constat: string, action: string, categoryName?: string, position: number, templateElementId?: string}>
   }>();
 
-  auditElements.forEach(auditElement => {
-    const actionOwner = auditElement.actionOwner || 'Non assigné';
-    const templateElement = templateElements.find(te => te._id === auditElement.templateElementId);
+  // Étape 1: Trier les sections si elles sont disponibles
+  const sortedSections = sortSectionsByPosition(sections);
+  
+  // Étape 2: Trier les templateElements selon l'ordre complet du formulaire
+  const sortedTemplateElements = sortTemplateElements(
+    templateElements,
+    categories,
+    subCategories,
+    sortedSections, // Utiliser les sections triées
+    audit.templateVersion || 1
+  );
     
-    if (!templateElement) return;
+  // Créer une map pour stocker la position de chaque templateElement dans la liste triée
+  const templateElementPositionMap = new Map<string, number>();
+  sortedTemplateElements.forEach((element, index) => {
+    if (element._id) {
+      templateElementPositionMap.set(element._id, index);
+    }
+  });
+  
+  // Étape 3: Créer une liste complète des auditElements ordonnés
+  // Associer chaque auditElement à son templateElement correspondant
+  const allOrderedAuditElements = auditElements
+    .map(auditElement => {
+      const templateElement = templateElements.find(te => te._id === auditElement.templateElementId);
+      if (!templateElement) {
+        console.log('templateElement non trouvé pour auditElement:', auditElement.templateElementId);
+        return null;
+      }
 
-    let categoryName = '';
-    if (templateElement.subCategoryId) {
-      const subCategory = subCategories.find(sc => sc._id === templateElement.subCategoryId);
-      categoryName = subCategory ? subCategory.name : '';
-    } else if (templateElement.categoryId) {
+      // Récupérer les informations de catégorie et sous-catégorie
       const category = categories.find(c => c._id === templateElement.categoryId);
-      categoryName = category ? category.name : '';
+      const subCategory = templateElement.subCategoryId ? 
+        subCategories.find(sc => sc._id === templateElement.subCategoryId) : null;
+      
+      // Récupérer la section si applicable
+      const section = category?.section ? 
+        sortedSections.find(s => s._id === category.section) : null;
+      
+      // Déterminer le nom de la catégorie à afficher (sous-catégorie si elle existe, sinon catégorie)
+      const categoryName = subCategory ? subCategory.name : (category ? category.name : '');
+      const sectionName = section?.name;
+
+          // Récupérer l'index de l'élément dans la liste triée des templateElements
+      // Cet index représente l'ordre exact selon la hiérarchie complète
+      const sortedIndex = templateElement._id ? templateElementPositionMap.get(templateElement._id) : undefined;
+      
+      if (sortedIndex === undefined) {
+        console.log('Position non trouvée pour templateElement:', templateElement._id, templateElement.name);
+      }
+
+      // Utiliser la fonction getPositionFromVersion pour obtenir les positions correctes
+      const getPositionFromVersion = (
+        positionArray: readonly number[] | undefined,
+        templateVersionArray: readonly number[] | undefined,
+        currentTemplateVersion: number
+      ): number => {
+        if (!positionArray?.length || !templateVersionArray?.length) return Infinity;
+        const versionIndex = templateVersionArray.indexOf(currentTemplateVersion);
+        return versionIndex === -1 ? Infinity : positionArray[versionIndex];
+      };
+
+      // Récupérer les positions réelles dans la hiérarchie en utilisant la même logique que sortTemplateElements
+      const templateVersion = audit.templateVersion || 1;
+      const sectionPos = templateVersion === 2 ? (section?.position ?? Infinity) : 0;
+      const categoryPos = getPositionFromVersion(category?.positionByVersion, category?.templateVersion, templateVersion);
+      const subCategoryPos = subCategory 
+        ? getPositionFromVersion(subCategory.positionByVersion, subCategory.templateVersion, templateVersion)
+        : Infinity;
+      const elementPos = getPositionFromVersion(templateElement.positionByVersion, templateElement.templateVersion, templateVersion);
+
+      return {
+        auditElement,
+        // Utiliser l'index dans la liste triée comme position principale
+        position: sortedIndex !== undefined ? sortedIndex : Infinity,
+        templateElement,
+        categoryName,
+        sectionName,
+        hierarchyInfo: {
+          section: section,
+          sectionPos: sectionPos,
+          category: category,
+          categoryPos: categoryPos,
+          subCategory: subCategory,
+          subCategoryPos: subCategoryPos,
+          elementPos: elementPos
+        }
+      };
+    })
+    .filter(item => item !== null) as Array<{
+      auditElement: AuditElement,
+      position: number,
+      templateElement: TemplateElement,
+      categoryName: string,
+      sectionName?: string,
+      hierarchyInfo: {
+        section: Section | null,
+        sectionPos: number,
+        category: Category | null | undefined,
+        categoryPos: number,
+        subCategory: SubCategory | null,
+        subCategoryPos: number,
+        elementPos: number
+      }
+    }>;
+    
+  // Étape 4: Trier la liste complète selon la hiérarchie
+  // Nous utilisons la position dans la liste triée des templateElements
+  // Cette position reflète déjà l'ordre correct selon la hiérarchie complète
+  allOrderedAuditElements.sort((a, b) => {
+    // Utiliser directement la position dans la liste triée des templateElements
+    // Cette position est déjà calculée en tenant compte de la hiérarchie complète
+    return a.position - b.position;
+  });
+
+  // Créer une structure temporaire pour stocker les éléments triés par actionOwner et par status
+  const tempOwnerMap = new Map<string, {
+    nonConformiteMajeure: Array<{item: typeof allOrderedAuditElements[0], index: number}>,
+    nonConformes: Array<{item: typeof allOrderedAuditElements[0], index: number}>,
+    observations: Array<{item: typeof allOrderedAuditElements[0], index: number}>
+  }>();
+
+  // Créer une map pour accéder rapidement aux informations de hiérarchie des templateElements
+  const templateElementMap = new Map<string, {
+    hierarchyInfo: {
+      sectionPos: number,
+      categoryPos: number,
+      subCategoryPos: number,
+      elementPos: number
+    }
+  }>();
+  
+  // Remplir la map avec les informations de hiérarchie des éléments triés
+  allOrderedAuditElements.forEach(item => {
+    templateElementMap.set(item.templateElement._id, {
+      hierarchyInfo: {
+        sectionPos: item.hierarchyInfo.sectionPos,
+        categoryPos: item.hierarchyInfo.categoryPos,
+        subCategoryPos: item.hierarchyInfo.subCategoryPos,
+        elementPos: item.hierarchyInfo.elementPos
+      }
+    });
+  });
+
+  // Étape 5: Grouper les éléments triés par actionOwner tout en préservant leur position
+  // Nous utilisons la liste déjà triée selon la hiérarchie complète
+  allOrderedAuditElements.forEach((item, index) => {
+    const { auditElement } = item;
+    const actionOwner = auditElement.actionOwner || 'Non assigné';
+
+    if (!tempOwnerMap.has(actionOwner)) {
+      tempOwnerMap.set(actionOwner, {
+        nonConformiteMajeure: [],
+        nonConformes: [],
+        observations: []
+      });
     }
 
+    const ownerData = tempOwnerMap.get(actionOwner)!;
+
+    // Ajouter l'élément dans la catégorie appropriée en conservant l'index original
+    // pour maintenir l'ordre de la liste triée
+    if (auditElement.status === 'Non conformité majeure') {
+      ownerData.nonConformiteMajeure.push({ item, index });
+    } else if (auditElement.status === 'Non conforme') {
+      ownerData.nonConformes.push({ item, index });
+    } else if (auditElement.status === 'Observation') {
+      ownerData.observations.push({ item, index });
+    }
+  });
+
+  tempOwnerMap.forEach((tempData, actionOwner) => {
     if (!actionOwnerMap.has(actionOwner)) {
       actionOwnerMap.set(actionOwner, {
         nonConformiteMajeure: [],
@@ -86,31 +256,81 @@ export const generateSynthese = (
         observations: []
       });
     }
-
+    
     const ownerData = actionOwnerMap.get(actionOwner)!;
 
-    if (auditElement.status === 'Non conformité majeure') {
-      ownerData.nonConformiteMajeure.push({
-        name: templateElement.name,
-        constat: auditElement.constat || '',
-        action: auditElement.action || '',
-        categoryName
+    // Convertir les non-conformités majeures en conservant l'ordre de la liste triée
+    // Nous utilisons l'index original pour maintenir l'ordre exact de la liste complète
+    tempData.nonConformiteMajeure
+      // Trier en utilisant la position dans la liste triée des templateElements
+      .sort((a, b) => {
+        const posA = a.item.templateElement._id && templateElementPositionMap.has(a.item.templateElement._id)
+          ? templateElementPositionMap.get(a.item.templateElement._id)!
+          : Infinity;
+        const posB = b.item.templateElement._id && templateElementPositionMap.has(b.item.templateElement._id)
+          ? templateElementPositionMap.get(b.item.templateElement._id)!
+          : Infinity;
+        return posA - posB;
+      })
+      .forEach(({ item }) => {
+        const { templateElement, categoryName, auditElement, position } = item;
+        ownerData.nonConformiteMajeure.push({
+          name: templateElement.name,
+          constat: auditElement.constat || '',
+          action: auditElement.action || '',
+          categoryName,
+          position: templateElementPositionMap.get(templateElement._id) || position,
+          templateElementId: templateElement._id
+        });
       });
-    } else if (auditElement.status === 'Non conforme') {
-      ownerData.nonConformes.push({
-        name: templateElement.name,
-        constat: auditElement.constat || '',
-        action: auditElement.action || '',
-        categoryName
+
+    // Convertir les non-conformes en conservant l'ordre de la liste triée
+    tempData.nonConformes
+      // Trier en utilisant la position dans la liste triée des templateElements
+      .sort((a, b) => {
+        const posA = a.item.templateElement._id && templateElementPositionMap.has(a.item.templateElement._id)
+          ? templateElementPositionMap.get(a.item.templateElement._id)!
+          : Infinity;
+        const posB = b.item.templateElement._id && templateElementPositionMap.has(b.item.templateElement._id)
+          ? templateElementPositionMap.get(b.item.templateElement._id)!
+          : Infinity;
+        return posA - posB;
+      })
+      .forEach(({ item }) => {
+        const { templateElement, categoryName, auditElement, position } = item;
+        ownerData.nonConformes.push({
+          name: templateElement.name,
+          constat: auditElement.constat || '',
+          action: auditElement.action || '',
+          categoryName,
+          position: templateElementPositionMap.get(templateElement._id) || position,
+          templateElementId: templateElement._id
+        });
       });
-    } else if (auditElement.status === 'Observation') {
-      ownerData.observations.push({
-        name: templateElement.name,
-        constat: auditElement.constat || '',
-        action: auditElement.action || '',
-        categoryName
+
+    // Convertir les observations en conservant l'ordre de la liste triée
+    tempData.observations
+      // Trier en utilisant la position dans la liste triée des templateElements
+      .sort((a, b) => {
+        const posA = a.item.templateElement._id && templateElementPositionMap.has(a.item.templateElement._id)
+          ? templateElementPositionMap.get(a.item.templateElement._id)!
+          : Infinity;
+        const posB = b.item.templateElement._id && templateElementPositionMap.has(b.item.templateElement._id)
+          ? templateElementPositionMap.get(b.item.templateElement._id)!
+          : Infinity;
+        return posA - posB;
+      })
+      .forEach(({ item }) => {
+        const { templateElement, categoryName, auditElement, position } = item;
+        ownerData.observations.push({
+          name: templateElement.name,
+          constat: auditElement.constat || '',
+          action: auditElement.action || '',
+          categoryName,
+          position: templateElementPositionMap.get(templateElement._id) || position,
+          templateElementId: templateElement._id
+        });
       });
-    }
   });
 
   // Separate 'Non assigné' from other actionOwners
@@ -183,11 +403,45 @@ export const generateSynthese = (
     
     yPosition += 8;
 
+    // Définir le type pour les éléments
+    type ItemType = {
+      name: string;
+      constat: string;
+      action: string;
+      categoryName?: string;
+      position: number;
+      templateElementId?: string;
+    };
+    
+    // Fonction pour trier les éléments selon la hiérarchie complète
+    // Nous utilisons directement la position dans la liste triée des templateElements
+    function sortItemsByHierarchy(items: ItemType[]): ItemType[] {
+      // Trier les éléments selon leur position dans la liste triée des templateElements
+      return [...items].sort((a, b) => {
+        // Récupérer la position dans la liste triée des templateElements
+        const posA = a.templateElementId && templateElementPositionMap.has(a.templateElementId)
+          ? templateElementPositionMap.get(a.templateElementId)!
+          : Infinity;
+          
+        const posB = b.templateElementId && templateElementPositionMap.has(b.templateElementId)
+          ? templateElementPositionMap.get(b.templateElementId)!
+          : Infinity;
+        
+        // Comparer les positions
+        return posA - posB;
+      });
+    }
+    
+    // Trier les éléments par position avant de les afficher
+    const sortedNonConformiteMajeure = sortItemsByHierarchy(data.nonConformiteMajeure);
+    const sortedNonConformes = sortItemsByHierarchy(data.nonConformes);
+    const sortedObservations = sortItemsByHierarchy(data.observations);
+    
     // Render non-conformités majeures if any exist
-    if (data.nonConformiteMajeure.length > 0) {
+    if (sortedNonConformiteMajeure.length > 0) {
       // Calculate height needed for title and first item
       const titleHeight = 12; // Height for the title section
-      const item = data.nonConformiteMajeure[0];
+      const item = sortedNonConformiteMajeure[0];
       const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
       const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
       const contentHeight = Math.max(constatHeight, actionHeight);
@@ -217,7 +471,7 @@ export const generateSynthese = (
       
       yPosition += 12;
 
-      data.nonConformiteMajeure.forEach((item, index) => {
+      sortedNonConformiteMajeure.forEach((item, index) => {
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
@@ -285,10 +539,10 @@ export const generateSynthese = (
       yPosition += 8;
     }
 
-    if (data.nonConformes.length > 0) {
+    if (sortedNonConformes.length > 0) {
       // Calculate height needed for title and first item
       const titleHeight = 12; // Height for the title section
-      const item = data.nonConformes[0];
+      const item = sortedNonConformes[0];
       const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
       const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
       const contentHeight = Math.max(constatHeight, actionHeight);
@@ -318,7 +572,7 @@ export const generateSynthese = (
       
       yPosition += 12;
 
-      data.nonConformes.forEach((item, index) => {
+      sortedNonConformes.forEach((item, index) => {
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
@@ -385,10 +639,10 @@ export const generateSynthese = (
       yPosition += 8;
     }
 
-    if (data.observations.length > 0) {
+    if (sortedObservations.length > 0) {
       // Calculate height needed for title and first item
       const titleHeight = 12; // Height for the title section
-      const item = data.observations[0];
+      const item = sortedObservations[0];
       const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
       const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
       const contentHeight = Math.max(constatHeight, actionHeight);
@@ -418,7 +672,7 @@ export const generateSynthese = (
       
       yPosition += 12;
 
-      data.observations.forEach((item, index) => {
+      sortedObservations.forEach((item, index) => {
         const constatHeight = calculateTextHeight(doc, item.constat, (CONTENT_WIDTH - 40) / 2);
         const actionHeight = calculateTextHeight(doc, item.action, (CONTENT_WIDTH - 40) / 2);
         const contentHeight = Math.max(constatHeight, actionHeight);
