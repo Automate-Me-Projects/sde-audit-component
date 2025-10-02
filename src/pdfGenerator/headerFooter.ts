@@ -1,12 +1,12 @@
 import { jsPDF } from 'jspdf';
 import { Building, Audit } from '../types';
-import { MARGIN_X, PAGE_WIDTH, HEADER_HEIGHT, FOOTER_HEIGHT, HEADER_BG_COLOR } from './constants';
+import { MARGIN_X, PAGE_WIDTH, HEADER_HEIGHT, FOOTER_HEIGHT, GREEN_BG_COLOR } from './constants';
 
 export const addHeader = (doc: jsPDF, building: Building, audit: Audit) => {
   // Add green background
-  doc.setFillColor(HEADER_BG_COLOR[0], HEADER_BG_COLOR[1], HEADER_BG_COLOR[2]);
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(0, 0, PAGE_WIDTH, HEADER_HEIGHT, 'F');
-  
+
   // Add text
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');

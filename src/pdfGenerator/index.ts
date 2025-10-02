@@ -1,11 +1,12 @@
 import { jsPDF } from 'jspdf';
 import { PDFGeneratorOptions, S3Item } from '../types';
 import { sortByPosition, sortSectionsByPosition, formatDate, sortIcpeTypes } from '../utils/index';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, ORANGE_BG_COLOR, LIGHTGREEN_BG_COLOR, LIGHT_BEIGE } from './constants';
 import { addHeader, addFooter } from './headerFooter';
 import { addInfoTable } from './tables';
 import { renderCategory } from './categories';
 import { generateSynthese } from './synthese';
+import { LOGO_BASE64 } from './logoData';
 
 export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> => {
   const {
@@ -110,20 +111,20 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Page 1: Cover
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
-  doc.setTextColor(0, 106, 60); // Dark green color
+  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.text('AUDIT DE SUIVI ICPE', MARGIN_X, 30);
 
   // Date
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 106, 60);
+  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   const formattedDate = formatDate(audit?.visitDate);
   doc.text(formattedDate, MARGIN_X, 45);
 
   // Building name (centered)
   doc.setFontSize(36);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
+  doc.setTextColor(ORANGE_BG_COLOR[0], ORANGE_BG_COLOR[1], ORANGE_BG_COLOR[2]);
   
   // Center align building information
   const buildingName = building?.name || '';
@@ -140,23 +141,18 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.setFontSize(20);
   doc.text(buildingAddress, centerX, 150, { align: 'center' });
 
-  // Static address (bottom right, center aligned)
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
-  
-  const staticAddress = [
-    '19 Bis avenue Léon Gambetta',
-    '92120 Montrouge',
-    'T+33 1 46 94 80 64'
-  ];
-  
-  const bottomY = doc.internal.pageSize.height - 40;
-  const rightX = doc.internal.pageSize.width - MARGIN_X - 40; // Adjust position for center alignment
-  
-  staticAddress.forEach((line: string, index: number) => {
-    doc.text(line, rightX, bottomY + (index * 7), { align: 'center' });
-  });
+  // Logo in footer (centered)
+  try {
+    // Original image dimensions: 629x232 pixels (ratio 2.71)
+    const logoWidth = 80;
+    const logoHeight = logoWidth / 2.71; // Maintain aspect ratio
+    const logoX = (doc.internal.pageSize.width - logoWidth) / 2;
+    const logoY = doc.internal.pageSize.height - 45;
+
+    doc.addImage(LOGO_BASE64, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+  } catch (error) {
+    console.error('Failed to add logo image:', error);
+  }
 
   // Page 3: First section - INFORMATIONS GÉNÉRALES
   doc.addPage();
@@ -255,7 +251,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, totalSectionHeight, 'S');
   
   // Title with green background
-  doc.setFillColor(0, 106, 60);
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(innerX, innerY, sectionWidth, titleHeight, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold'); // Ensure title is bold
@@ -389,7 +385,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   const icpeTitleHeight = 8;
   
   // Title with green background
-  doc.setFillColor(0, 106, 60);
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, icpeTitleHeight, 'F');
   doc.setTextColor(255, 255, 255);
   const icpeTitleX = MARGIN_X + (CONTENT_WIDTH - icpeTitleWidth) / 2;
@@ -412,7 +408,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   type ColWidthKeys = keyof typeof colWidths;
   
   // ICPE Table header
-  doc.setFillColor(232, 251, 211);
+  doc.setFillColor(LIGHT_BEIGE[0], LIGHT_BEIGE[1], LIGHT_BEIGE[2]);
   doc.setTextColor(0, 0, 0); // Black text for headers
   doc.setFont('helvetica', 'normal');
   doc.setDrawColor(200, 200, 200);
@@ -680,7 +676,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           'F'
         );
 
-        doc.setDrawColor(0, 106, 60);
+        doc.setDrawColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
         doc.setLineWidth(0.5);
         doc.rect(
           xPosition,

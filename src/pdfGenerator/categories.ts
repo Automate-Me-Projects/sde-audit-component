@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { Category, SubCategory, Building, Audit, TemplateElement, AuditElement, Regulatory } from '../types';
 import { sortByPosition } from '../utils/index';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHTGREEN_BG_COLOR } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHT_BEIGE } from './constants';
 import { addHeader } from './headerFooter';
 import { renderMultipleRegulatories } from './regulatory';
 import { calculateRowHeight, renderAuditElementRow, getTemplateElementsForSubCategory, getDirectTemplateElements, expandTemplateElements } from './elements';
@@ -68,14 +68,14 @@ export const renderSubCategory = (subCategory: SubCategory, templateElements: Te
   }
 
   // SubCategory title with background
-  doc.setFillColor(LIGHTGREEN_BG_COLOR[0], LIGHTGREEN_BG_COLOR[1], LIGHTGREEN_BG_COLOR[2]);
+  doc.setFillColor(LIGHT_BEIGE[0], LIGHT_BEIGE[1], LIGHT_BEIGE[2]);
   doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, titleHeight, 'F');
-  
+
   // Add thin border around title
   doc.setDrawColor(128, 128, 128);
   doc.setLineWidth(0.1);
   doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, titleHeight, 'D');
-  
+
   doc.setFontSize(11);
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'normal');
@@ -266,9 +266,9 @@ export const renderCategory = (audit: Audit, building: Building, category: Categ
   // Category title with background
   doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, yPosition, CONTENT_WIDTH, titleHeight, 'F');
-  
+
   doc.setFontSize(11);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   
   // Center text horizontally and vertically

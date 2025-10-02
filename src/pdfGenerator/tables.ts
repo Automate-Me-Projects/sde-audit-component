@@ -1,26 +1,26 @@
 import { jsPDF } from 'jspdf';
-import { MARGIN_X, CONTENT_WIDTH } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, GREEN_BG_COLOR, LIGHT_BEIGE } from './constants';
 
 export const addInfoTable = (doc: jsPDF, rows: { label: string; value: string }[], title: string, yPosition: number): number => {
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   const titleWidth = doc.getTextWidth(title);
-  
+
   const sectionWidth = CONTENT_WIDTH;
   const titleHeight = 8;
-  
+
   // Title with green background
-  doc.setFillColor(0, 106, 60);
+  doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
   doc.rect(MARGIN_X, yPosition - 5, sectionWidth, titleHeight, 'F');
   doc.setTextColor(255, 255, 255);
   const titleX = MARGIN_X + (sectionWidth - titleWidth) / 2;
   doc.text(title, titleX, yPosition);
-  
+
   // Table
   const labelColumnWidth = sectionWidth * 0.25; // 25% for labels
   const valueColumnWidth = sectionWidth * 0.75; // 75% for values
   let currentY = yPosition - 5 + titleHeight;
-  
+
   rows.forEach((row, index) => {
     // Calculate row height based on content
     doc.setFont('helvetica', 'normal');
@@ -29,9 +29,9 @@ export const addInfoTable = (doc: jsPDF, rows: { label: string; value: string }[
     const valueLines = doc.splitTextToSize(row.value, valueColumnWidth - 4);
     const maxLines = Math.max(labelLines.length, valueLines.length);
     const rowHeight = maxLines * 5 + 4;
-    
-    // Label column background (sde-light-green)
-    doc.setFillColor(232, 251, 211); // #e8fbd3
+
+    // Label column background
+    doc.setFillColor(LIGHT_BEIGE[0], LIGHT_BEIGE[1], LIGHT_BEIGE[2]);
     doc.rect(MARGIN_X, currentY, labelColumnWidth, rowHeight, 'F');
     
     // Value column background (alternate gray for odd rows)

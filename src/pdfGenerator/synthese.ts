@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory, Section } from '../types';
-import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN } from './constants';
+import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHT_BEIGE } from './constants';
 import { addHeader } from './headerFooter';
 import { sortTemplateElements, sortSectionsByPosition } from '../utils';
 
@@ -390,12 +390,12 @@ export const generateSynthese = (
     }
 
     // Actor header with background
-    doc.setFillColor(232, 251, 211);
+    doc.setFillColor(GREEN_BG_COLOR[0], GREEN_BG_COLOR[1], GREEN_BG_COLOR[2]);
     doc.rect(MARGIN_X, yPosition - 5, CONTENT_WIDTH, 12, 'F');
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    
+    doc.setTextColor(255, 255, 255);
+
     // Center the text
     const textWidth = doc.getTextWidth(actionOwner.toUpperCase());
     const centerX = MARGIN_X + (CONTENT_WIDTH / 2) - (textWidth / 2);
