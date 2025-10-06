@@ -193,7 +193,7 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
                   className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Acteur</option>
-                  {actors.map((actor) => (
+                  {[...new Set(actors)].map((actor) => (
                     <option key={actor} value={actor}>
                       {actor}
                     </option>
@@ -299,7 +299,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
   const renderSubCategory = (subCategory: SubCategory, sectionId?: string) => {
     const sortedElements = getTemplateElementsForSubCategory(subCategory);
-    
+
     if (sortedElements.length === 0) return null;
 
     return (
@@ -307,9 +307,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         <h4 className="text-[rgb(146,208,80)] font-medium mb-3">{subCategory.name}</h4>
         {sectionId && renderRegulatory(sectionId, subCategory.categoryId, subCategory._id)}
         <div className="space-y-4">
-          {sortedElements.map((expandedElement) => (
+          {sortedElements.map((expandedElement, index) => (
             <AuditElementRow
-              key={expandedElement.auditElement?._id || expandedElement._id}
+              key={`${expandedElement.auditElement?._id || expandedElement._id}-${index}`}
               expandedElement={expandedElement}
               onElementDelete={onElementDelete}
               onElementDuplicate={onElementDuplicate}
@@ -324,7 +324,7 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
 
   const renderCategory = (category: Category, sectionId?: string) => {
     const directElements = getDirectTemplateElements(category._id);
-    
+
     const categorySubCategories = sortByPosition(
       subCategories.filter(sc => sc.categoryId === category._id),
       templateVersion
@@ -337,12 +337,12 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
         <h3 className="text-[rgb(0,106,60)] text-lg font-semibold mb-3">{category.name}</h3>
         {sectionId && renderRegulatory(sectionId, category._id)}
         <div className="w-full space-y-6">
-          {categorySubCategories.map(subCategory => 
+          {categorySubCategories.map(subCategory =>
             renderSubCategory(subCategory, sectionId)
           )}
-          {directElements.map(expandedElement => (
+          {directElements.map((expandedElement, index) => (
             <AuditElementRow
-              key={expandedElement.auditElement?._id || expandedElement._id}
+              key={`${expandedElement.auditElement?._id || expandedElement._id}-${index}`}
               expandedElement={expandedElement}
               onElementDelete={onElementDelete}
               onElementDuplicate={onElementDuplicate}
@@ -398,9 +398,9 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
             {categorySubCategories.map((subCategory) =>
               renderSubCategory(subCategory)
             )}
-            {getDirectTemplateElements(category._id).map((expandedElement) => (
+            {getDirectTemplateElements(category._id).map((expandedElement, index) => (
               <AuditElementRow
-                key={expandedElement.auditElement?._id || expandedElement._id}
+                key={`${expandedElement.auditElement?._id || expandedElement._id}-${index}`}
                 expandedElement={expandedElement}
                 onElementDelete={onElementDelete}
                 onElementDuplicate={onElementDuplicate}
