@@ -18,22 +18,16 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
   onAuditElementChange,
   actors,
 }) => {
-  const [inputValues, setInputValues] = useState<{[key: string]: string}>({});
+  const [inputValues, setInputValues] = useState<{[key: string]: string}>(() => {
+    const elementId = expandedElement.auditElement?._id;
+    return {
+      [`${elementId}-constat`]: expandedElement.auditElement?.constat || '',
+      [`${elementId}-action`]: expandedElement.auditElement?.action || ''
+    };
+  });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const elementId = expandedElement.auditElement?._id;
   const templateElementId = expandedElement._id;
-  const isFirstRender = useRef(true);
-
-  // Initialize input values on first render only
-  useEffect(() => {
-    if (isFirstRender.current) {
-      setInputValues({
-        [`${elementId}-constat`]: expandedElement.auditElement?.constat || '',
-        [`${elementId}-action`]: expandedElement.auditElement?.action || ''
-      });
-      isFirstRender.current = false;
-    }
-  }, [elementId, expandedElement.auditElement]);
 
   const handleInputChange = useCallback((field: string, value: string) => {
     const key = `${elementId}-${field}`;
@@ -247,11 +241,11 @@ export const AuditElements: React.FC<AuditElementsProps> = ({
   };
 
   const getTemplateElementsForSubCategory = (subCategory: SubCategory): ExpandedElement[] => {
-    const elements = templateElements.filter(element => 
-      element.subCategoryId === subCategory._id && 
+    const elements = templateElements.filter(element =>
+      element.subCategoryId === subCategory._id &&
       element.templateVersion?.includes(templateVersion)
     );
-    
+
     const expandedElements = expandTemplateElements(elements);
     return sortExpandedTemplateElements(expandedElements, templateVersion);
   };

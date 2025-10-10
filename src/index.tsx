@@ -61,6 +61,13 @@ export const AuditFormComponent: FC = () => {
     description: 'The auditElements array',
   }) as unknown as [AuditElement[], (value: AuditElement[]) => void];
 
+  // Create a stable reference key based on actual data
+  const dataVersion = useMemo(() => {
+    const auditElementsIds = (auditElements || []).map(ae => ae._id).sort().join(',');
+    const templateElementsIds = (templateElements || []).map(te => te._id).sort().join(',');
+    return `${auditElementsIds}-${templateElementsIds}`;
+  }, [auditElements, templateElements]);
+
   const [regulatories, setRegulatories] = Retool.useStateArray({
     name: 'regulatories',
     description: 'The regulatories array',
@@ -253,7 +260,20 @@ export const AuditFormComponent: FC = () => {
   }, [auditElements, setAuditElements, triggerEvent]);
 
   const handleAuditElementDelete = useCallback((expandedElement: ExpandedElement) => {
-    triggerEvent('auditElementDelete', { expandedElement });
+    // Check if auditElement exists before trying to delete
+    if (!expandedElement.auditElement) {
+      console.error('Cannot delete: auditElement is null');
+      return;
+    }
+
+    const deleteData = {
+      auditElementId: expandedElement.auditElement._id,
+      templateElementId: expandedElement._id,
+      categoryId: expandedElement.categoryId,
+      subCategoryId: expandedElement.subCategoryId
+    };
+
+    triggerEvent('auditElementDelete', deleteData);
 
     const newAuditElements = auditElements.filter(
       auditElement => auditElement._id !== expandedElement.auditElement?._id
@@ -406,6 +426,12 @@ export const AuditFormComponent: FC = () => {
     }
   }, [allTemplateElements, rawAllTemplateElements]);
 
+  // Filter templateElements to only include those used in auditElements
+  const filteredTemplateElements = useMemo(() => {
+    const usedTemplateIds = new Set(auditElements.map(ae => ae.templateElementId));
+    return templateElements.filter(te => usedTemplateIds.has(te._id));
+  }, [templateElements, auditElements]);
+
   // Memoize the props passed to AuditForm
   const auditFormProps = useMemo(() => ({
     audit,
@@ -413,7 +439,7 @@ export const AuditFormComponent: FC = () => {
     sections,
     categories,
     subCategories,
-    templateElements,
+    templateElements: filteredTemplateElements,
     allTemplateElements,
     auditElements,
     regulatories,
@@ -432,7 +458,7 @@ export const AuditFormComponent: FC = () => {
     sections,
     categories,
     subCategories,
-    templateElements,
+    filteredTemplateElements,
     allTemplateElements,
     auditElements,
     regulatories,
@@ -449,7 +475,7 @@ export const AuditFormComponent: FC = () => {
 
   return (
     <div className="p-4 max-w-7xl mx-auto">
-      <AuditForm {...auditFormProps} />
+      <AuditForm key={dataVersion} {...auditFormProps} />
     </div>
   );
 };
