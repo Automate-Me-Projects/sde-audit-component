@@ -6,6 +6,7 @@ import { AddElementModal } from './AddElementModal';
 import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
+import { SaveIndicator } from './SaveIndicator';
 import ImageGallery from './ImageGallery';
 import { generateTempId, formatDateToFrench, formatDate, toISODateString } from '../utils';
 import { generateAuditPDF } from '../pdfGenerator';
@@ -23,6 +24,7 @@ const AuditFormComponent = React.memo(({
   regulatories,
   images,
   files,
+  saveStatus,
   onAuditChange,
   onElementAdd,
   onElementChange,
@@ -240,9 +242,12 @@ const AuditFormComponent = React.memo(({
         `}
       </style>
       <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] px-3 py-2 sm:px-6 sm:py-4 z-50 shadow-md">
-        <h1 className="text-[rgb(146,208,80)] text-lg sm:text-2xl font-bold mb-2 sm:mb-4 truncate">
-          {building.name} - {audit.year}
-        </h1>
+        <div className="flex items-center justify-between mb-2 sm:mb-4">
+          <h1 className="text-[rgb(146,208,80)] text-lg sm:text-2xl font-bold truncate">
+            {building.name} - {audit.year}
+          </h1>
+          {saveStatus && <SaveIndicator status={saveStatus} />}
+        </div>
         <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
           <div className="w-full sm:w-48 lg:w-64 order-1">
             <StatusDropdown

@@ -7,6 +7,7 @@ import {
   where,
   updateDoc,
   addDoc,
+  setDoc,
   deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -325,10 +326,19 @@ export async function updateBuilding(
 }
 
 export async function createAuditElement(
-  element: Omit<AuditElement, '_id'>
+  element: Omit<AuditElement, '_id'>,
+  documentId?: string
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTIONS.AUDIT_ELEMENTS), element);
-  return docRef.id;
+  if (documentId) {
+    // Use setDoc with specified ID (for duplicates/new elements with temp IDs)
+    const docRef = doc(db, COLLECTIONS.AUDIT_ELEMENTS, documentId);
+    await setDoc(docRef, element);
+    return documentId;
+  } else {
+    // Use addDoc for auto-generated ID
+    const docRef = await addDoc(collection(db, COLLECTIONS.AUDIT_ELEMENTS), element);
+    return docRef.id;
+  }
 }
 
 export async function updateAuditElement(
@@ -347,10 +357,19 @@ export async function deleteAuditElement(elementId: string): Promise<void> {
 }
 
 export async function createTemplateElement(
-  element: Omit<TemplateElement, '_id'>
+  element: Omit<TemplateElement, '_id'>,
+  documentId?: string
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTIONS.TEMPLATE_ELEMENTS), element);
-  return docRef.id;
+  if (documentId) {
+    // Use setDoc with specified ID
+    const docRef = doc(db, COLLECTIONS.TEMPLATE_ELEMENTS, documentId);
+    await setDoc(docRef, element);
+    return documentId;
+  } else {
+    // Use addDoc for auto-generated ID
+    const docRef = await addDoc(collection(db, COLLECTIONS.TEMPLATE_ELEMENTS), element);
+    return docRef.id;
+  }
 }
 
 // ============ BATCH OPERATIONS ============

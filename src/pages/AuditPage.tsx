@@ -22,6 +22,7 @@ export function AuditPage() {
     files,
     loading,
     error,
+    saveStatus,
     handleAuditChange,
     handleAuditElementAdd,
     handleAuditElementChange,
@@ -114,6 +115,7 @@ export function AuditPage() {
         regulatories={regulatories}
         images={images}
         files={files}
+        saveStatus={saveStatus}
         onAuditChange={handleAuditChange}
         onElementAdd={handleAuditElementAdd}
         onElementChange={handleAuditElementChange}

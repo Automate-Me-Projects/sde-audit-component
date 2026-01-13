@@ -15,6 +15,7 @@ import type {
   ExpandedElement,
   Regulatory,
   S3Item,
+  SaveStatus,
 } from '../types';
 
 export interface UseAuditDataReturn {
@@ -34,6 +35,8 @@ export interface UseAuditDataReturn {
   // States
   loading: boolean;
   error: Error | null;
+  saveStatus: SaveStatus;
+  pendingCount: number;
 
   // Handlers
   handleAuditChange: (field: string, value: any) => void;
@@ -67,8 +70,17 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Save status tracking
+  const [pendingCount, setPendingCount] = useState(0);
+  const [savingCount, setSavingCount] = useState(0);
+  const [hasError, setHasError] = useState(false);
+
   // Debounce timeouts refs
   const debounceTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Track documents being created (to queue updates until create completes)
+  const pendingCreates = useRef<Map<string, { promise: Promise<void>; resolve: () => void }>>(new Map());
+  const pendingUpdates = useRef<Map<string, { field: string | null; data: any }[]>>(new Map());
 
   // Load data
   const loadData = useCallback(async () => {
@@ -146,6 +158,30 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
 
   // ============ DEBOUNCED FIREBASE UPDATE ============
 
+  // Process queued updates for a document after it's been created
+  const processQueuedUpdates = useCallback(async (collection: string, documentId: string) => {
+    const docKey = `${collection}-${documentId}`;
+    const queuedUpdates = pendingUpdates.current.get(docKey);
+
+    if (queuedUpdates && queuedUpdates.length > 0) {
+      // Merge all queued updates
+      const mergedData = queuedUpdates.reduce((acc, update) => {
+        return { ...acc, ...update.data };
+      }, {});
+
+      pendingUpdates.current.delete(docKey);
+
+      try {
+        if (collection === 'auditElements') {
+          await firestoreService.updateAuditElement(documentId, mergedData);
+        }
+      } catch (error) {
+        console.error(`Failed to apply queued updates for ${collection}/${documentId}:`, error);
+        setHasError(true);
+      }
+    }
+  }, []);
+
   const debouncedFirebaseUpdate = useCallback((
     collection: string,
     documentId: string,
@@ -155,16 +191,46 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
     delayMs: number = 1000
   ) => {
     const key = `${collection}-${documentId}-${field || 'all'}`;
+    const docKey = `${collection}-${documentId}`;
+
+    // For updates, check if the document is still being created
+    if (operation === 'update' && pendingCreates.current.has(docKey)) {
+      // Queue the update to be applied after create completes
+      const existingQueue = pendingUpdates.current.get(docKey) || [];
+      existingQueue.push({ field, data });
+      pendingUpdates.current.set(docKey, existingQueue);
+      return;
+    }
+
+    // For creates, mark as pending immediately (before setTimeout)
+    // Create a real promise that will be resolved when the create completes
+    if (operation === 'create') {
+      let resolveCreate: () => void = () => {};
+      const createPromise = new Promise<void>((resolve) => {
+        resolveCreate = resolve;
+      });
+      pendingCreates.current.set(docKey, { promise: createPromise, resolve: resolveCreate });
+    }
 
     // Clear existing timeout
     const existingTimeout = debounceTimeouts.current.get(key);
     if (existingTimeout) {
       clearTimeout(existingTimeout);
+    } else {
+      // New pending operation
+      setPendingCount(prev => prev + 1);
     }
+
+    // Clear any previous error when new changes are made
+    setHasError(false);
 
     // Set new timeout
     const timeout = setTimeout(async () => {
       debounceTimeouts.current.delete(key);
+
+      // Move from pending to saving
+      setPendingCount(prev => Math.max(0, prev - 1));
+      setSavingCount(prev => prev + 1);
 
       if (isOnline) {
         try {
@@ -179,21 +245,48 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
               break;
             case 'auditElements':
               if (operation === 'update') {
+                // Double-check if there's a pending create (belt and suspenders)
+                const pendingCreate = pendingCreates.current.get(docKey);
+                if (pendingCreate) {
+                  // Wait for create to complete before updating
+                  await pendingCreate.promise;
+                }
                 await firestoreService.updateAuditElement(documentId, data);
               } else if (operation === 'create') {
-                await firestoreService.createAuditElement(data);
+                // Get the pending create entry (already set before setTimeout)
+                const pendingEntry = pendingCreates.current.get(docKey);
+
+                // Pass documentId to use setDoc with specific ID instead of addDoc
+                await firestoreService.createAuditElement(data, documentId);
+
+                // Mark create as complete by resolving the promise
+                if (pendingEntry) {
+                  pendingEntry.resolve();
+                }
+
+                // Process any queued updates after create completes
+                await processQueuedUpdates(collection, documentId);
+                pendingCreates.current.delete(docKey);
               } else if (operation === 'delete') {
                 await firestoreService.deleteAuditElement(documentId);
               }
               break;
             case 'templateElements':
               if (operation === 'create') {
-                await firestoreService.createTemplateElement(data);
+                // Pass documentId to use setDoc with specific ID
+                await firestoreService.createTemplateElement(data, documentId);
               }
               break;
           }
         } catch (error) {
           console.error(`Failed to sync ${collection}/${documentId}:`, error);
+          setHasError(true);
+          // Clean up pending create on error and resolve promise to unblock waiting updates
+          const pendingEntry = pendingCreates.current.get(docKey);
+          if (pendingEntry) {
+            pendingEntry.resolve();
+            pendingCreates.current.delete(docKey);
+          }
           // Add to offline queue for retry
           await offlineService.addPendingChange({
             operation,
@@ -212,11 +305,22 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
           field: field || undefined,
           data,
         });
+        // Clean up pending create for offline mode
+        if (operation === 'create') {
+          const pendingEntry = pendingCreates.current.get(docKey);
+          if (pendingEntry) {
+            pendingEntry.resolve();
+            pendingCreates.current.delete(docKey);
+          }
+        }
       }
+
+      // Done saving
+      setSavingCount(prev => Math.max(0, prev - 1));
     }, delayMs);
 
     debounceTimeouts.current.set(key, timeout);
-  }, [isOnline]);
+  }, [isOnline, processQueuedUpdates]);
 
   // ============ HANDLERS ============
 
@@ -480,6 +584,14 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
     return templateElements.filter(te => usedTemplateIds.has(te._id));
   }, [templateElements, auditElements]);
 
+  // Compute save status
+  const saveStatus: SaveStatus = useMemo(() => {
+    if (hasError) return 'error';
+    if (savingCount > 0) return 'saving';
+    if (pendingCount > 0) return 'pending';
+    return 'saved';
+  }, [hasError, savingCount, pendingCount]);
+
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
@@ -502,6 +614,8 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
     files,
     loading,
     error,
+    saveStatus,
+    pendingCount,
     handleAuditChange,
     handleAuditElementAdd,
     handleAuditElementChange,

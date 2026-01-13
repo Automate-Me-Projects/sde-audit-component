@@ -119,6 +119,8 @@ export interface ICPETableComponentProps {
   onCapacityChange: (id: string, value: string) => void;
 }
 
+export type SaveStatus = 'saved' | 'saving' | 'pending' | 'error';
+
 export interface AuditFormProps {
   audit: Audit;
   building: Building;
@@ -131,6 +133,7 @@ export interface AuditFormProps {
   regulatories: Regulatory[];
   images: S3Item[];
   files: S3Item[];
+  saveStatus?: SaveStatus;
   onAuditChange?: (field: string, value: any) => void;
   onElementChange?: (elementId: string | undefined, templateElementId: string, field: string, value: any) => void;
   onElementDuplicate?: (element: ExpandedElement) => void;
