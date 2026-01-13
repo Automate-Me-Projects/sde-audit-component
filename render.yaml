@@ -30,7 +30,6 @@ services:
   - type: web
     name: audit-sde-frontend
     runtime: static
-    plan: free
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     headers:
