@@ -28,7 +28,7 @@ export const StatusDropdown: React.FC<StatusDropdownProps> = ({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`col-span-1 w-48 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${getBorderColor(value)}`}
+      className={`w-full lg:w-48 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm ${getBorderColor(value)}`}
     >
       <option value="">Statut</option>
       {options.map((option) => (

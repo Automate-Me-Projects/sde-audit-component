@@ -239,19 +239,19 @@ const AuditFormComponent = React.memo(({
           }
         `}
       </style>
-      <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] p-4 z-50 shadow-md">
-        <h1 className="text-[rgb(146,208,80)] text-2xl font-bold mb-4">
+      <div className="fixed top-0 left-0 right-0 bg-[#e8fbd3] px-3 py-2 sm:px-6 sm:py-4 z-50 shadow-md">
+        <h1 className="text-[rgb(146,208,80)] text-lg sm:text-2xl font-bold mb-2 sm:mb-4 truncate">
           {building.name} - {audit.year}
         </h1>
-        <div className="flex space-x-4 items-center">
-          <div className="w-64">
+        <div className="flex flex-wrap gap-2 sm:gap-4 items-center">
+          <div className="w-full sm:w-48 lg:w-64 order-1">
             <StatusDropdown
               value={audit?.status || ''}
               onChange={(value) => handleAuditDataChange('status', value)}
               options={statusOptions}
             />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[200px] order-3 sm:order-2">
             <ElementDropdown
               sections={sections}
               categories={categories}
@@ -262,40 +262,42 @@ const AuditFormComponent = React.memo(({
               onSelect={handleAuditElementAdd}
             />
           </div>
-          <button
-            onClick={useCallback(() => setIsModalOpen(true), [])}
-            className="p-2 text-green-600 hover:text-green-700"
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-          <button
-            onClick={handleVisualizePDF}
-            disabled={isVisualizing}
-            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-3"
-          >
-            {isVisualizing ? (
-              <Loader2 className="h-5 w-5 spinner" />
-            ) : (
-              <Eye className="h-5 w-5" />
-            )}
-            PDF
-          </button>
-          <button
-            onClick={handleGeneratePDF}
-            disabled={isGenerating}
-            className="px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-3"
-          >
-            {isGenerating ? (
-              <Loader2 className="h-5 w-5 spinner" />
-            ) : (
-              <ArrowDownToLine className="h-5 w-5" />
-            )}
-            PDF
-          </button>
+          <div className="flex items-center gap-2 order-2 sm:order-3">
+            <button
+              onClick={useCallback(() => setIsModalOpen(true), [])}
+              className="p-2 text-green-600 hover:text-green-700"
+            >
+              <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
+            </button>
+            <button
+              onClick={handleVisualizePDF}
+              disabled={isVisualizing}
+              className="px-2 sm:px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-1 sm:gap-3 text-sm sm:text-base"
+            >
+              {isVisualizing ? (
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 spinner" />
+              ) : (
+                <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+              <span className="hidden sm:inline">PDF</span>
+            </button>
+            <button
+              onClick={handleGeneratePDF}
+              disabled={isGenerating}
+              className="px-2 sm:px-4 py-2 bg-sde-green text-white rounded hover:bg-sde-green/90 disabled:bg-sde-green/50 disabled:cursor-not-allowed flex items-center gap-1 sm:gap-3 text-sm sm:text-base"
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 spinner" />
+              ) : (
+                <ArrowDownToLine className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+              <span className="hidden sm:inline">PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="pt-32 px-6 pb-8 w-full max-w-full mx-auto space-y-8">
+      <div className="pt-28 sm:pt-32 px-3 sm:px-6 pb-8 w-full max-w-full mx-auto space-y-4 sm:space-y-8">
         <InfoTable rows={infoTableRows} />
 
         <InfoTable
@@ -308,13 +310,13 @@ const AuditFormComponent = React.memo(({
           rows={exploitationRows}
         />
 
-        <div className="bg-white p-4 rounded-lg shadow">
-          <h3 className="text-[rgb(0,106,60)] font-medium mb-2">
-          DESCRIPTIF DU DÉROULÉ DE L’AUDIT
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
+          <h3 className="text-[rgb(0,106,60)] font-medium mb-2 text-sm sm:text-base">
+          DESCRIPTIF DU DÉROULÉ DE L'AUDIT
           </h3>
-          <textarea 
+          <textarea
             ref={textareaRef}
-            className="w-full whitespace-pre-line min-h-[200px] p-2 border rounded"
+            className="w-full whitespace-pre-line min-h-[150px] sm:min-h-[200px] p-2 border rounded text-sm sm:text-base"
             value={localIcpeRegulations}
             onChange={(e) => handleIcpeRegulationsChange(e.target.value)}
           />

@@ -35,13 +35,9 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
 
   return (
     <div className="w-full">
-      <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ANNEXES</h2>
-      <div 
-        className="grid gap-4"
-        style={{ 
-          gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
-          gridAutoRows: '1fr'
-        }}
+      <h2 className="text-[rgb(0,106,60)] text-lg sm:text-xl font-medium mb-4">ANNEXES</h2>
+      <div
+        className="grid gap-2 sm:gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
       >
         {sortedImages.map((image) => {
           const isLoaded = loadedImages.has(image.url);

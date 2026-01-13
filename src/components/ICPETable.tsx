@@ -44,8 +44,34 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
 
   return (
     <div className="w-full">
-      <h2 className="text-[rgb(0,106,60)] text-xl font-medium mb-4">ICPE</h2>
-      <div className="w-full overflow-x-auto">
+      <h2 className="text-[rgb(0,106,60)] text-lg sm:text-xl font-medium mb-4">ICPE</h2>
+
+      {/* Mobile layout - Card style */}
+      <div className="block md:hidden space-y-3">
+        {sortedIcpeTypes.map((icpe, index) => (
+          icpe?.refId ? (
+            <div key={`${icpe.refId}-${index}`} className="bg-white border rounded-lg p-3 shadow-sm">
+              <div className="flex justify-between items-start mb-2">
+                <span className="font-medium text-sm text-gray-900">{icpe.rubrique}</span>
+                <span className="text-xs px-2 py-1 bg-gray-100 rounded">{icpe.regime}</span>
+              </div>
+              <p className="text-sm text-gray-600 mb-2">{icpe.description}</p>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">Capacité</label>
+                <input
+                  type="text"
+                  value={getInputValue(icpe.refId)}
+                  onChange={(e) => handleInputChange(icpe.refId, e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                />
+              </div>
+            </div>
+          ) : null
+        ))}
+      </div>
+
+      {/* Desktop layout - Table */}
+      <div className="hidden md:block w-full overflow-x-auto">
         <table className="w-full divide-y divide-gray-200">
           <thead>
             <tr>
