@@ -2,8 +2,11 @@ import { Section, Category, SubCategory, TemplateElement, ExpandedElement } from
 
 export const sortByPosition = (items: Category[] | SubCategory[] | TemplateElement[], templateVersion: number): Category[] | SubCategory[] | TemplateElement[] => {
   return [...items].sort((a, b) => {
-    const posA = a.positionByVersion?.[templateVersion - 1] ?? Infinity;
-    const posB = b.positionByVersion?.[templateVersion - 1] ?? Infinity;
+    // Find index of templateVersion in templateVersion array, then use that index for positionByVersion
+    const indexA = (a.templateVersion as readonly number[])?.indexOf(templateVersion) ?? -1;
+    const indexB = (b.templateVersion as readonly number[])?.indexOf(templateVersion) ?? -1;
+    const posA = indexA !== -1 ? (a.positionByVersion?.[indexA] ?? Infinity) : Infinity;
+    const posB = indexB !== -1 ? (b.positionByVersion?.[indexB] ?? Infinity) : Infinity;
     return posA - posB;
   });
 };
@@ -59,9 +62,48 @@ export const createTimestamp = () => ({
   _nanoseconds: (Date.now() % 1000) * 1000000
 });
 
-export const formatDate = (date: string | null | undefined): string => {
+// Helper to extract seconds from various Firestore Timestamp formats
+const getSecondsFromTimestamp = (date: any): number | null => {
+  if (!date || typeof date !== 'object') return null;
+  // Firebase SDK Timestamp (with toDate method)
+  if (typeof date.toDate === 'function') {
+    return date.toDate().getTime() / 1000;
+  }
+  // Serialized Timestamp with _seconds
+  if ('_seconds' in date) {
+    return date._seconds;
+  }
+  // Serialized Timestamp with seconds
+  if ('seconds' in date) {
+    return date.seconds;
+  }
+  return null;
+};
+
+export const formatDate = (date: string | { _seconds: number; _nanoseconds: number } | { seconds: number; nanoseconds: number } | Date | null | undefined): string => {
   if (!date) return '';
-  const dateObject = new Date(date);
+
+  let dateObject: Date;
+
+  // Handle Firestore Timestamp object (various formats)
+  if (typeof date === 'object' && !(date instanceof Date)) {
+    const seconds = getSecondsFromTimestamp(date);
+    if (seconds !== null) {
+      dateObject = new Date(seconds * 1000);
+    } else {
+      return '';
+    }
+  } else if (date instanceof Date) {
+    dateObject = date;
+  } else if (typeof date === 'string') {
+    dateObject = new Date(date);
+  } else {
+    return '';
+  }
+
+  // Check for invalid date
+  if (isNaN(dateObject.getTime())) return '';
+
   const months = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
@@ -69,9 +111,75 @@ export const formatDate = (date: string | null | undefined): string => {
   return `${months[dateObject.getMonth()]} ${dateObject.getFullYear()}`;
 };
 
-export const formatDateToFrench = (date: string | null | undefined): string => {
+// Convert any date format to ISO string (yyyy-MM-dd) for HTML date inputs
+export const toISODateString = (date: string | { _seconds: number; _nanoseconds: number } | { seconds: number; nanoseconds: number } | Date | null | undefined): string => {
   if (!date) return '';
-  const [year, month, day] = date.split('-');
+
+  let dateObject: Date;
+
+  // Handle Firestore Timestamp object (various formats)
+  if (typeof date === 'object' && !(date instanceof Date)) {
+    const seconds = getSecondsFromTimestamp(date);
+    if (seconds !== null) {
+      dateObject = new Date(seconds * 1000);
+    } else {
+      return '';
+    }
+  } else if (date instanceof Date) {
+    dateObject = date;
+  } else if (typeof date === 'string') {
+    // Already in correct format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return date;
+    }
+    dateObject = new Date(date);
+  } else {
+    return '';
+  }
+
+  // Check for invalid date
+  if (isNaN(dateObject.getTime())) return '';
+
+  // Return in yyyy-MM-dd format
+  const year = dateObject.getFullYear();
+  const month = String(dateObject.getMonth() + 1).padStart(2, '0');
+  const day = String(dateObject.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const formatDateToFrench = (date: string | { _seconds: number; _nanoseconds: number } | { seconds: number; nanoseconds: number } | Date | null | undefined): string => {
+  if (!date) return '';
+
+  let dateObject: Date;
+
+  // Handle Firestore Timestamp object (various formats)
+  if (typeof date === 'object' && !(date instanceof Date)) {
+    const seconds = getSecondsFromTimestamp(date);
+    if (seconds !== null) {
+      dateObject = new Date(seconds * 1000);
+    } else {
+      return '';
+    }
+  } else if (date instanceof Date) {
+    dateObject = date;
+  } else if (typeof date === 'string') {
+    // Handle string in YYYY-MM-DD format
+    if (date.includes('-')) {
+      const [year, month, day] = date.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    // Already in DD/MM/YYYY format or other
+    return date;
+  } else {
+    return '';
+  }
+
+  // Check for invalid date
+  if (isNaN(dateObject.getTime())) return '';
+
+  const day = String(dateObject.getDate()).padStart(2, '0');
+  const month = String(dateObject.getMonth() + 1).padStart(2, '0');
+  const year = dateObject.getFullYear();
   return `${day}/${month}/${year}`;
 };
 
@@ -207,10 +315,10 @@ const regimePriority: Record<RegimeType, number> = {
   'non classé': 4
 };
 
-export const sortIcpeTypes = <T extends { regime: string; rubrique: string }>(icpeTypes: T[]): T[] => {
+export const sortIcpeTypes = <T extends { regime?: string; rubrique?: string }>(icpeTypes: T[]): T[] => {
   return [...icpeTypes].sort((a, b) => {
-    const regimeA = normalizeRegime(a.regime);
-    const regimeB = normalizeRegime(b.regime);
+    const regimeA = normalizeRegime(a.regime || '');
+    const regimeB = normalizeRegime(b.regime || '');
     const priorityA = regimePriority[regimeA as RegimeType] ?? 999;
     const priorityB = regimePriority[regimeB as RegimeType] ?? 999;
     

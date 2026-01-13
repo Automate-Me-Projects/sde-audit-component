@@ -7,7 +7,7 @@ import { InfoTable } from './InfoTable';
 import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import ImageGallery from './ImageGallery';
-import { generateTempId, formatDateToFrench, formatDate } from '../utils';
+import { generateTempId, formatDateToFrench, formatDate, toISODateString } from '../utils';
 import { generateAuditPDF } from '../pdfGenerator';
 import type { AuditFormProps, ExpandedElement } from '../types';
 
@@ -104,23 +104,23 @@ const AuditFormComponent = React.memo(({
   ], [building?.owner, building?.tenant, building?.technicalManager, building?.dateDerniereInspection, building?.siteContact, building?.conformity]);
 
   const auditRows = useMemo(() => [
-    { 
-      label: 'Date de visite :', 
-      value: formatDateToFrench(audit?.visitDate) ?? '', 
-      displayValue: audit?.visitDate ?? '', 
-      editable: true, 
-      onChange: (value: string) => handleAuditDataChange('visitDate', value) 
+    {
+      label: 'Date de visite :',
+      value: formatDateToFrench(audit?.visitDate) ?? '',
+      displayValue: toISODateString(audit?.visitDate),
+      editable: true,
+      onChange: (value: string) => handleAuditDataChange('visitDate', value)
     },
-    { 
-      label: "Date d'émission du rapport :", 
-      value: formatDateToFrench(audit?.reportDate) ?? '', 
-      displayValue: audit?.reportDate ?? '', 
-      editable: true, 
-      onChange: (value: string) => handleAuditDataChange('reportDate', value) 
+    {
+      label: "Date d'émission du rapport :",
+      value: formatDateToFrench(audit?.reportDate) ?? '',
+      displayValue: toISODateString(audit?.reportDate),
+      editable: true,
+      onChange: (value: string) => handleAuditDataChange('reportDate', value)
     },
-    { 
-      label: 'Rédacteur :', 
-      value: audit?.editor ?? '' 
+    {
+      label: 'Rédacteur :',
+      value: audit?.editor ?? ''
     }
   ], [audit?.visitDate, audit?.reportDate, audit?.editor, handleAuditDataChange]);
 

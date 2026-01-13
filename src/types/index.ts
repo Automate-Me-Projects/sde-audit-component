@@ -32,12 +32,12 @@ export interface Building {
 }
 
 export interface IcpeType {
-  refId: string,
-  critere: string;
-  description: string;
-  regime: string;
-  rubrique: string;
-  capacity: string;
+  refId: string;
+  critere?: string;
+  description?: string;
+  regime?: string;
+  rubrique?: string;
+  capacity?: string;
 }
 
 export interface Section {
@@ -195,6 +195,7 @@ export interface ElementDropdownProps {
 export interface S3Item {
   name: string;
   url: string;
+  key: string;
 }
 export interface S3Response {
   images: S3Item[];

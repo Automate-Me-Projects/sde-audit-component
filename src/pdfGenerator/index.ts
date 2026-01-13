@@ -7,6 +7,7 @@ import { addInfoTable } from './tables';
 import { renderCategory } from './categories';
 import { generateSynthese } from './synthese';
 import { LOGO_BASE64 } from './logoData';
+import { getImageAsBase64 } from '../services/s3';
 
 export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> => {
   const {
@@ -36,10 +37,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   };
 
   // Helper function to add full-page image
-  const addFullPageImage = async (doc: jsPDF, imageUrl: string, addTitle: boolean, title: string, startY: number) => {
-    // Encode the URL properly
-    const encodedUrl = encodeURI(imageUrl).replace(/\(/g, '%28').replace(/\)/g, '%29');
-    
+  const addFullPageImage = async (doc: jsPDF, s3Key: string, addTitle: boolean, title: string, startY: number) => {
     if (addTitle) {
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
@@ -48,6 +46,9 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
     }
 
     try {
+      // Get image as base64 via backend proxy (avoids CORS issues)
+      const base64Data = await getImageAsBase64(s3Key);
+
       const img = new Image();
       await new Promise((resolve, reject) => {
         img.onload = () => {
@@ -55,20 +56,20 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
             const pageWidth = doc.internal.pageSize.width;
             const pageHeight = doc.internal.pageSize.height;
             const imgAspectRatio = img.width / img.height;
-            
+
             let imageWidth = pageWidth - (MARGIN_X * 2);
             let imageHeight = imageWidth / imgAspectRatio;
-            
+
             // Adjust if image is too tall
             if (imageHeight > pageHeight - FOOTER_HEIGHT - startY) {
               imageHeight = pageHeight - FOOTER_HEIGHT - startY;
               imageWidth = imageHeight * imgAspectRatio;
             }
-            
+
             const xPosition = (pageWidth - imageWidth) / 2;
 
             doc.addImage({
-              imageData: img,
+              imageData: base64Data,
               x: xPosition,
               y: startY,
               width: imageWidth,
@@ -81,16 +82,16 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           }
         };
         img.onerror = (error) => reject(error);
-        img.src = encodedUrl;
+        img.src = base64Data;
       });
     } catch (error) {
       // Add error placeholder
       const pageWidth = doc.internal.pageSize.width;
       const placeholderHeight = 40;
-      
+
       doc.setFillColor(240, 240, 240);
       doc.rect(MARGIN_X, startY, pageWidth - (MARGIN_X * 2), placeholderHeight, 'F');
-      
+
       doc.setFontSize(9);
       doc.setTextColor(100, 100, 100);
       doc.text(
@@ -595,7 +596,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
       let imagesOnCurrentPage = 0;
 
       const processImageWithOrientation = async (
-        image: S3Item,
+        base64Data: string,
         xPos: number,
         yPos: number,
         loadedImage: HTMLImageElement
@@ -611,7 +612,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           const xOffset = (imageWidth - newWidth) / 2;
 
           doc.addImage(
-            image.url,
+            base64Data,
             'JPEG',
             xPos + padding + xOffset,
             yPos + bannerHeight + padding,
@@ -623,7 +624,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
         } else {
           // Image paysage - dimensions standard
           doc.addImage(
-            image.url,
+            base64Data,
             'JPEG',
             xPos + padding,
             yPos + bannerHeight + padding,
@@ -652,15 +653,18 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
         const currentYPosition = yPosition + (currentRow * (totalImageHeight + 10));
 
         try {
+          // Get image as base64 via backend proxy (avoids CORS issues)
+          const base64Data = await getImageAsBase64(image.key);
+
           const loadedImage = await new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
             img.onload = () => resolve(img);
             img.onerror = () => reject(new Error('Failed to load image'));
-            img.src = image.url;
+            img.src = base64Data;
           });
 
           if (loadedImage && loadedImage.width && loadedImage.height) {
-            await processImageWithOrientation(image, xPosition, currentYPosition, loadedImage);
+            await processImageWithOrientation(base64Data, xPosition, currentYPosition, loadedImage);
           }
         } catch (error) {
           console.error(`Erreur de traitement pour l'image ${image.name}:`, error);
@@ -740,7 +744,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         }
-        await addFullPageImage(doc, etatStocksFiles[i].url, false, '', yPosition);
+        await addFullPageImage(doc, etatStocksFiles[i].key, false, '', yPosition);
       }
       annexeNumber++;
     }
@@ -763,7 +767,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         }
-        await addFullPageImage(doc, planStockageFiles[i].url, false, '', yPosition);
+        await addFullPageImage(doc, planStockageFiles[i].key, false, '', yPosition);
       }
       annexeNumber++;
     }
@@ -786,7 +790,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           addHeader(doc, building, audit);
           yPosition = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
         }
-        await addFullPageImage(doc, suiviInspectionFiles[i].url, false, '', yPosition);
+        await addFullPageImage(doc, suiviInspectionFiles[i].key, false, '', yPosition);
       }
       annexeNumber++;
     }

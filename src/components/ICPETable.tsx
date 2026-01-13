@@ -64,9 +64,9 @@ export const ICPETable: React.FC<ICPETableComponentProps> = ({ icpeTypes = [], o
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedIcpeTypes.map((icpe) => (
+            {sortedIcpeTypes.map((icpe, index) => (
               icpe?.refId ? (
-                <tr key={icpe.refId}>
+                <tr key={`${icpe.refId}-${index}`}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {icpe.rubrique}
                   </td>

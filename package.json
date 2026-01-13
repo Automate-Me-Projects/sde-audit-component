@@ -1,25 +1,27 @@
 {
-  "name": "my-react-app",
-  "version": "0.1.0",
+  "name": "audit-sde-app",
+  "version": "1.0.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.721.0",
     "@aws-sdk/credential-providers": "^3.721.0",
     "@aws-sdk/s3-request-presigner": "^3.721.0",
     "@headlessui/react": "^1.7.18",
-    "@tryretool/custom-component-support": "^1.5.0",
     "exif-js": "^2.3.0",
+    "firebase": "^10.14.0",
+    "idb-keyval": "^6.2.1",
     "jspdf": "^2.5.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.358.0",
-    "postcss-modules": "^6.0.1",
-    "prop-types": "^15.8.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.28.0"
   },
   "scripts": {
-    "build": "npm run build:css && webpack --mode production",
-    "dev": "npm run build:css && webpack --mode development",
+    "dev": "npm run build:css && vite",
+    "build": "npm run build:css && tsc && vite build",
+    "preview": "vite preview",
     "build:css": "tailwindcss -i ./src/input.css -o ./src/output.css"
   },
   "engines": {
@@ -39,30 +41,19 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",
-    "@types/jsdom": "^21.1.7",
     "@types/lodash": "^4.14.202",
     "@types/node": "^22.13.1",
     "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
     "@typescript-eslint/parser": "^7.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.17",
-    "css-loader": "^6.10.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.0",
     "postcss": "^8.4.35",
-    "postcss-loader": "^8.1.0",
-    "style-loader": "^3.3.4",
     "tailwindcss": "^3.4.1",
-    "ts-loader": "^9.5.1",
     "typescript": "^5.7.3",
-    "webpack": "^5.90.1",
-    "webpack-cli": "^5.1.4"
-  },
-  "retoolCustomComponentLibraryConfig": {
-    "name": "AuditFormComponent",
-    "label": "Audit Form Component",
-    "description": "Audit form component for B27 SDE",
-    "entryPoint": "src/index.tsx",
-    "outputPath": "dist"
+    "vite": "^5.4.11"
   }
 }

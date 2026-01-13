@@ -1,0 +1,65 @@
+# Render Blueprint - Audit SDE Application
+# Deploy: https://render.com/docs/infrastructure-as-code
+
+services:
+  # ============ BACKEND S3 API ============
+  - type: web
+    name: audit-sde-s3-backend
+    runtime: node
+    region: frankfurt  # eu-central (closest to eu-west-3 S3)
+    plan: free
+    rootDir: s3-backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: AWS_REGION
+        value: eu-west-3
+      - key: AWS_ACCESS_KEY_ID
+        sync: false  # Set manually in Render dashboard
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false  # Set manually in Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false  # Will be set after frontend URL is known
+
+  # ============ FRONTEND STATIC SITE ============
+  - type: web
+    name: audit-sde-frontend
+    runtime: static
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        value: b27-sde.firebaseapp.com
+      - key: VITE_FIREBASE_PROJECT_ID
+        value: b27-sde
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        value: b27-sde.firebasestorage.app
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_FIREBASE_MEASUREMENT_ID
+        sync: false
+      - key: VITE_S3_BACKEND_URL
+        sync: false  # Will be set to backend URL after deploy
+      - key: VITE_AWS_REGION
+        value: eu-west-3
+      - key: VITE_AWS_BUCKET_NAME
+        value: sde-audit-images-bucket
