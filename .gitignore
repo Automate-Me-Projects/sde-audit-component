@@ -13,3 +13,4 @@ dist/*
 !dist/.placeholder
 .env
 pdf/*   
+firebase-debug.log

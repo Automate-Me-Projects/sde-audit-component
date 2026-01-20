@@ -427,6 +427,15 @@ export async function fetchAllDataForAudit(auditId: string): Promise<{
   const templateElementIds = new Set(auditElements.map(ae => ae.templateElementId));
   const templateElements = allTemplateElements.filter(te => templateElementIds.has(te._id));
 
+  // Merge building AP with regulatories (building.AP has same structure as Regulatory)
+  const combinedRegulatories = [
+    ...regulatories,
+    ...((building?.AP || []) as Regulatory[]).map((ap, index) => ({
+      ...ap,
+      _id: ap._id || `building-ap-${index}`
+    }))
+  ];
+
   // Resolve references for building and audit
   let resolvedBuilding = building;
   let resolvedAudit = audit;
@@ -485,6 +494,6 @@ export async function fetchAllDataForAudit(auditId: string): Promise<{
     templateElements,
     allTemplateElements,
     auditElements,
-    regulatories,
+    regulatories: combinedRegulatories,
   };
 }

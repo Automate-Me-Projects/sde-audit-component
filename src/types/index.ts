@@ -28,6 +28,7 @@ export interface Building {
   portfolio: string;
   icpeRegulations: string;
   icpeTypes: IcpeType[];
+  AP?: Regulatory[];
   _id: string;
 }
 
