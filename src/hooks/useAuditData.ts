@@ -570,10 +570,23 @@ export function useAuditData(auditId: string | null): UseAuditDataReturn {
     // Update cache
     offlineService.updateCachedBuilding(building._id, updatedBuilding);
 
-    // Debounced Firebase update
-    const updateData = refId === null
-      ? { [field]: value }
-      : { icpeTypes: updatedBuilding.icpeTypes };
+    // Debounced Firebase update - clean undefined values from icpeTypes
+    let updateData: Record<string, any>;
+    if (refId === null) {
+      updateData = { [field]: value };
+    } else {
+      // Remove undefined values from icpeTypes to avoid Firebase error
+      const cleanedIcpeTypes = updatedBuilding.icpeTypes?.map(icpe => {
+        const cleaned: Record<string, any> = {};
+        for (const [key, val] of Object.entries(icpe)) {
+          if (val !== undefined) {
+            cleaned[key] = val;
+          }
+        }
+        return cleaned;
+      });
+      updateData = { icpeTypes: cleanedIcpeTypes };
+    }
 
     debouncedFirebaseUpdate('buildings', building._id, null, updateData, 'update', 500);
   }, [building, debouncedFirebaseUpdate]);
