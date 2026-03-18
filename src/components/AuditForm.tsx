@@ -317,7 +317,7 @@ const AuditFormComponent = React.memo(({
 
         <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
           <h3 className="text-[rgb(0,106,60)] font-medium mb-2 text-sm sm:text-base">
-          DESCRIPTIF DU DÉROULÉ DE L'AUDIT
+          DESCRIPTIF DU DÉROULÉ DE L&apos;AUDIT
           </h3>
           <textarea
             ref={textareaRef}

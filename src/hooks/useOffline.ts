@@ -14,7 +14,8 @@ export interface UseOfflineReturn {
 }
 
 export function useOffline(): UseOfflineReturn {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Default to true - we'll verify with a real connectivity check
+  const [isOnline, setIsOnline] = useState(true);
   const [pendingChangesCount, setPendingChangesCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncResult, setLastSyncResult] = useState<{
@@ -54,6 +55,23 @@ export function useOffline(): UseOfflineReturn {
     const handleOffline = () => {
       setIsOnline(false);
     };
+
+    // Real connectivity check - fetch a small resource
+    const checkConnectivity = async () => {
+      try {
+        // Try to fetch from Google's favicon (small, reliable, cached)
+        const response = await fetch('https://www.google.com/favicon.ico', {
+          mode: 'no-cors',
+          cache: 'no-store'
+        });
+        setIsOnline(true);
+      } catch {
+        // Fallback to navigator.onLine
+        setIsOnline(navigator.onLine ?? true);
+      }
+    };
+
+    checkConnectivity();
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);

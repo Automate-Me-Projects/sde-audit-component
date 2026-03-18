@@ -128,9 +128,14 @@ export const toISODateString = (date: string | { _seconds: number; _nanoseconds:
   } else if (date instanceof Date) {
     dateObject = date;
   } else if (typeof date === 'string') {
-    // Already in correct format
+    // Already in correct format (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return date;
+    }
+    // Handle DD/MM/YYYY format
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+      const [day, month, year] = date.split('/');
+      return `${year}-${month}-${day}`;
     }
     dateObject = new Date(date);
   } else {
