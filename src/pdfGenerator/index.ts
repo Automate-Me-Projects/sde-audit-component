@@ -636,6 +636,7 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
         }
       };
 
+      let photoIndex = 0;
       for (const image of images) {
         // Check if we need a new page
         const maxImagesPerPage = currentPage === 1 ? 4 : 6;
@@ -689,9 +690,8 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
           bannerHeight
         );
 
-        const numberMatch = image.name.match(/\d+/);
-        const photoNumber = numberMatch ? numberMatch[0] : '';
-        const bannerText = `Photo ${photoNumber}`;
+        photoIndex++;
+        const bannerText = `Photo ${photoIndex}`;
 
         doc.setFontSize(9.5);
         doc.setFont('helvetica', 'bold');
