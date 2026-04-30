@@ -138,9 +138,16 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.text(buildingName, centerX, 120, { align: 'center' });
   doc.text(buildingPortfolio, centerX, 135, { align: 'center' });
   
-  // Building address with smaller size
+  // Building address with smaller size — wrap on each "-" so long addresses don't overflow
   doc.setFontSize(20);
-  doc.text(buildingAddress, centerX, 150, { align: 'center' });
+  const addressLines = buildingAddress
+    .split('-')
+    .map(part => part.trim())
+    .filter(part => part.length > 0);
+  const addressLineHeight = 8;
+  addressLines.forEach((line, index) => {
+    doc.text(line, centerX, 150 + index * addressLineHeight, { align: 'center' });
+  });
 
   // Logo in footer (centered)
   try {
