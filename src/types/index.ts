@@ -29,6 +29,7 @@ export interface Building {
   icpeRegulations: string;
   icpeTypes: IcpeType[];
   AP?: Regulatory[];
+  regulatories?: boolean;
   _id: string;
 }
 
