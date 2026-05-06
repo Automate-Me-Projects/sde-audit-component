@@ -427,18 +427,15 @@ export async function fetchAllDataForAudit(auditId: string): Promise<{
   const templateElementIds = new Set(auditElements.map(ae => ae.templateElementId));
   const templateElements = allTemplateElements.filter(te => templateElementIds.has(te._id));
 
-  // Merge building AP with regulatories only when building.regulatories === true.
-  // Why: the flag opts a building into using its bespoke AP entries on top of the
-  // shared regulatories collection. When false/absent, only the shared collection applies.
-  const combinedRegulatories = building?.regulatories === true
-    ? [
-        ...regulatories,
-        ...((building?.AP || []) as Regulatory[]).map((ap, index) => ({
-          ...ap,
-          _id: ap._id || `building-ap-${index}`
-        }))
-      ]
-    : regulatories;
+  // building.regulatories toggles inclusion of the shared regulatories collection.
+  // building.AP (the building's own AP entries) is always included.
+  const buildingAP = ((building?.AP || []) as Regulatory[]).map((ap, index) => ({
+    ...ap,
+    _id: ap._id || `building-ap-${index}`
+  }));
+  const combinedRegulatories = building?.regulatories === false
+    ? buildingAP
+    : [...regulatories, ...buildingAP];
 
   // Resolve references for building and audit
   let resolvedBuilding = building;
