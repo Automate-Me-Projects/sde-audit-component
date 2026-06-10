@@ -138,12 +138,16 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.text(buildingName, centerX, 120, { align: 'center' });
   doc.text(buildingPortfolio, centerX, 135, { align: 'center' });
   
-  // Building address with smaller size — wrap on each "-" so long addresses don't overflow
+  // Building address with smaller size — split only on explicit line breaks (never on
+  // "-", which would break hyphenated city names like "AULNAY-SOUS-BOIS"), then let
+  // jsPDF wrap any line that is too wide for the page so nothing overflows or overlaps
   doc.setFontSize(20);
+  const addressMaxWidth = doc.internal.pageSize.width - 2 * MARGIN_X;
   const addressLines = buildingAddress
-    .split('-')
+    .split(/[\r\n]+/)
     .map(part => part.trim())
-    .filter(part => part.length > 0);
+    .filter(part => part.length > 0)
+    .flatMap(part => doc.splitTextToSize(part, addressMaxWidth) as string[]);
   const addressLineHeight = 8;
   addressLines.forEach((line, index) => {
     doc.text(line, centerX, 150 + index * addressLineHeight, { align: 'center' });
