@@ -74,7 +74,13 @@ const BubbleToolbar: React.FC<{ editor: Editor }> = ({ editor }) => {
     <BubbleMenu
       editor={editor}
       data-rich-toolbar
-      className="flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1 py-0.5 shadow-lg"
+      // Attache la barre au <body> pour échapper aux contextes d'empilement /
+      // overflow du conteneur du champ, sinon elle reste masquée même avec un z-index.
+      appendTo={() => document.body}
+      // Force la barre au-dessus de la sélection. `flip: false` empêche Floating UI
+      // de la rebasculer en dessous (comportement par défaut qui obligeait à scroller).
+      options={{ placement: 'top', flip: false }}
+      className="z-[10000] flex items-center gap-0.5 rounded-md border border-gray-200 bg-white px-1 py-0.5 shadow-lg"
     >
       <ToolbarButton active={state.bold} title="Gras" onClick={() => editor.chain().focus().toggleBold().run()}>
         <Bold className="h-4 w-4" />

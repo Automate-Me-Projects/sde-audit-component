@@ -259,6 +259,11 @@ const layout = (
   });
   if (line.words.length) pushLine(false); // dernière ligne : non justifiée
 
+  // La mesure des segments a pu laisser la police sur gras/italique.
+  // On restaure un état neutre pour ne pas contaminer le texte rendu ensuite
+  // (ex. le nom de l'élément dessiné après measureRichTextHeight).
+  doc.setFont('helvetica', 'normal');
+
   return lines;
 };
 
