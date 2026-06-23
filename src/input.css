@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* --- Champ de texte enrichi (RichTextField / Tiptap) --- */
+.rich-text-field .ProseMirror {
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rich-text-field .ProseMirror p,
+.rich-text-content p {
+  margin: 0;
+}
+.rich-text-field .ProseMirror p + p,
+.rich-text-content p + p {
+  margin-top: 0.25rem;
+}
+.rich-text-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rich-text-field mark,
+.rich-text-content mark {
+  border-radius: 2px;
+  padding: 0 1px;
+}

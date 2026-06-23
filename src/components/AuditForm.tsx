@@ -8,6 +8,7 @@ import { ICPETable } from './ICPETable';
 import { AuditElements } from './AuditElements';
 import { SaveIndicator } from './SaveIndicator';
 import ImageGallery from './ImageGallery';
+import { RichTextField } from './RichTextField';
 import { generateTempId, formatDateToFrench, formatDate, toISODateString } from '../utils';
 import { generateAuditPDF } from '../pdfGenerator';
 import type { AuditFormProps, ExpandedElement } from '../types';
@@ -36,23 +37,12 @@ const AuditFormComponent = React.memo(({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [localIcpeRegulations, setLocalIcpeRegulations] = useState(building?.icpeRegulations ?? '');
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isVisualizing, setIsVisualizing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const adjustTextareaHeight = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.max(200, textarea.scrollHeight)}px`;
-    }
-  }, []);
-
   useEffect(() => {
     setLocalIcpeRegulations(building?.icpeRegulations ?? '');
-    // Adjust height after content is updated
-    setTimeout(adjustTextareaHeight, 0);
-  }, [building?.icpeRegulations, adjustTextareaHeight]);
+  }, [building?.icpeRegulations]);
 
   const handleAuditDataChange = useCallback((field: string, value: string) => {
     if (onAuditChange) {
@@ -62,8 +52,6 @@ const AuditFormComponent = React.memo(({
 
   const handleIcpeRegulationsChange = useCallback((value: string) => {
     setLocalIcpeRegulations(value);
-    // Adjust height when content changes
-    setTimeout(adjustTextareaHeight, 0);
 
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -72,7 +60,7 @@ const AuditFormComponent = React.memo(({
     timeoutRef.current = setTimeout(() => {
       onBuildingChange?.(null, 'icpeRegulations', value);
     }, 1000);
-  }, [onBuildingChange, adjustTextareaHeight]);
+  }, [onBuildingChange]);
 
   const statusOptions = useMemo(() => [
     'En cours de rédaction',
@@ -319,11 +307,10 @@ const AuditFormComponent = React.memo(({
           <h3 className="text-[rgb(0,106,60)] font-medium mb-2 text-sm sm:text-base">
           DESCRIPTIF DU DÉROULÉ DE L&apos;AUDIT
           </h3>
-          <textarea
-            ref={textareaRef}
-            className="w-full whitespace-pre-line min-h-[150px] sm:min-h-[200px] p-2 border rounded text-sm sm:text-base"
+          <RichTextField
             value={localIcpeRegulations}
-            onChange={(e) => handleIcpeRegulationsChange(e.target.value)}
+            onChange={handleIcpeRegulationsChange}
+            minHeight={200}
           />
         </div>
 

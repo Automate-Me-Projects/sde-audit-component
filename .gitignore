@@ -14,3 +14,4 @@ dist/*
 .env
 pdf/*   
 firebase-debug.log
+.gstack/

@@ -8,6 +8,7 @@ import { renderCategory } from './categories';
 import { generateSynthese } from './synthese';
 import { LOGO_BASE64 } from './logoData';
 import { getImageAsBase64 } from '../services/s3';
+import { renderRichTextPaginated, measureRichTextHeight } from './richText';
 
 export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<jsPDF> => {
   const {
@@ -198,36 +199,17 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   // Calculate content height and check if we need a page break before starting
   const descriptionText = building?.icpeRegulations || '';
   const textWidth = sectionWidth - (textPadding * 2);
-  
-  // First pass: calculate the height needed for the first page
-  const availableHeight = doc.internal.pageSize.height - FOOTER_HEIGHT - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - 30;
+
   const lineHeight = 5;
-  const linesPerPage = Math.floor(availableHeight / lineHeight);
-  const maxCharsPerLine = Math.floor(textWidth / (doc.getStringUnitWidth('m') * doc.internal.scaleFactor / 1000));
-  
-  // Calculate total height needed for the section
-  const paragraphs = descriptionText.split(/\n/);
-  let totalTextHeight = 0;
-  
-  // Temporarily set text properties to calculate correct heights
+
+  // Calculate total height needed for the section (texte enrichi)
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  
-  paragraphs.forEach(paragraph => {
-    if (paragraph.trim() === '') {
-      totalTextHeight += lineHeight;
-    } else {
-      // Get exact dimensions for this paragraph
-      const dimensions = doc.getTextDimensions(paragraph.trim(), {
-        maxWidth: textWidth
-      });
-      totalTextHeight += dimensions.h + (lineHeight * 0.5);
-    }
-  });
 
+  let totalTextHeight = measureRichTextHeight(doc, descriptionText, textWidth, 9, lineHeight);
   // Add extra padding for text spacing
   totalTextHeight += textPadding * 2;
-  
+
   const titleHeight = 8;
   // Calculate total section height including all padding and margins
   const totalSectionHeight = totalTextHeight + titleHeight + (padding * 2);
@@ -275,113 +257,34 @@ export const generateAuditPDF = async (options: PDFGeneratorOptions): Promise<js
   doc.setFontSize(9); // Set font size for table content
   doc.setTextColor(0, 0, 0); // Force black color
 
-  // Now write the actual text
-  let remainingText = descriptionText;
-  let currentY = innerY + titleHeight + textPadding;
-  
-  // Function to process text chunk with smart justification
-  const processTextChunk = (chunk: string, y: number) => {
-    let currentY = y;
-    
-    // Split into paragraphs while preserving empty lines
-    const paragraphs = chunk.split(/\n/);
-    
-    paragraphs.forEach((paragraph) => {
-      if (paragraph.trim() === '') {
-        // Empty line, just add spacing
-        currentY += 5;
-        return;
-      }
+  // Now write the actual text (texte enrichi, pagination au niveau des lignes)
+  const textX = MARGIN_X + padding + textPadding;
+  const startTextY = innerY + titleHeight + textPadding;
+  const pageBottom = doc.internal.pageSize.height - FOOTER_HEIGHT - textPadding;
+  const continuationTop = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN;
 
-      // For each paragraph, let jsPDF handle the text wrapping and justification
-      const textHeight = doc.getTextDimensions(paragraph.trim(), {
-        maxWidth: textWidth
-      }).h;
-
-      // Calculate how many lines this will take
-      const numberOfLines = Math.ceil(textHeight / 5);
-
-      // If this is a single line or empty, don't justify
-      if (numberOfLines <= 1 || !paragraph.trim()) {
-        doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
-          maxWidth: textWidth
-        });
-      } else {
-        // For multi-line paragraphs, justify the text
-        doc.text(paragraph.trim(), MARGIN_X + padding + textPadding, currentY, {
-          maxWidth: textWidth,
-          renderingMode: "fill"
-        });
-      }
-
-      // Move to next paragraph position
-      currentY += textHeight + (5 * 0.5);
-    });
-
-    return currentY;
-  };
-  
-  // Split text into chunks that will fit on each page
-  while (remainingText.length > 0) {
-    const availableSpace = Math.max(linesPerPage * maxCharsPerLine, 1); // Ensure at least 1 character
-    let textChunk = remainingText;
-    
-    if (remainingText.length > availableSpace) {
-      // Find last space within available space
-      const lastSpaceIndex = remainingText.lastIndexOf(' ', availableSpace);
-      if (lastSpaceIndex === -1) {
-        // Si pas d'espace trouvé, on coupe au maximum disponible
-        textChunk = remainingText.substring(0, Math.max(availableSpace, 1));
-        console.log('No space found, cutting at:', availableSpace);
-      } else {
-        textChunk = remainingText.substring(0, lastSpaceIndex);
-        console.log('Text split at space:', lastSpaceIndex);
-      }
-      remainingText = remainingText.substring(textChunk.length);
-    } else {
-      remainingText = '';
-    }
-    
-    // Process the text chunk with smart justification
-    currentY = processTextChunk(textChunk, currentY);
-    
-    // If there's more text, add a new page
-    if (remainingText.length > 0) {
+  renderRichTextPaginated(doc, descriptionText, textX, startTextY, textWidth, {
+    fontSize: 9,
+    lineHeight,
+    justify: true,
+    defaultColor: [0, 0, 0],
+    pageBottom,
+    onNewPage: () => {
       doc.addPage();
       addHeader(doc, building, audit);
-      
-      // Calculate height for remaining text
-      const remainingParagraphs = remainingText.split(/\n/);
-      let remainingHeight = 0;
-      remainingParagraphs.forEach(paragraph => {
-        if (paragraph.trim() === '') {
-          remainingHeight += 5;
-        } else {
-          const textHeight = doc.getTextDimensions(paragraph.trim(), {
-            maxWidth: textWidth
-          }).h;
-          remainingHeight += textHeight + (5 * 0.5);
-        }
-      });
-      
-      const pageHeight = Math.min(
-        remainingHeight + (textPadding * 2),
-        doc.internal.pageSize.height - HEADER_HEIGHT - HEADER_BOTTOM_MARGIN - FOOTER_HEIGHT - 20
-      );
-      
-      currentY = HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + textPadding;
-      
-      // Draw border and background sized to remaining content
+
+      // Cadre + fond gris de continuation sur la nouvelle page
+      const boxHeight = pageBottom - continuationTop;
+      doc.setFillColor(240, 240, 240);
+      doc.rect(MARGIN_X + padding, continuationTop, sectionWidth, boxHeight, 'F');
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(borderWidth);
-      doc.rect(MARGIN_X, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN, CONTENT_WIDTH, pageHeight, 'S');
-      
-      doc.setFillColor(240, 240, 240);
-      doc.rect(MARGIN_X + padding, HEADER_HEIGHT + HEADER_BOTTOM_MARGIN + padding, sectionWidth, pageHeight - (padding * 2), 'F');
-      
+      doc.rect(MARGIN_X, continuationTop, CONTENT_WIDTH, boxHeight, 'S');
       doc.setTextColor(0, 0, 0);
-    }
-  }
+
+      return continuationTop + textPadding;
+    },
+  });
 
   yPosition += totalSectionHeight + (padding * 2) + 5;
 

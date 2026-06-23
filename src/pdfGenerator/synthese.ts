@@ -3,6 +3,7 @@ import { AuditElement, Building, Audit, TemplateElement, Category, SubCategory, 
 import { MARGIN_X, CONTENT_WIDTH, FOOTER_HEIGHT, HEADER_HEIGHT, HEADER_BOTTOM_MARGIN, GREEN_BG_COLOR, LIGHT_BEIGE } from './constants';
 import { addHeader } from './headerFooter';
 import { sortTemplateElements, sortSectionsByPosition } from '../utils';
+import { measureRichTextHeight, renderRichText } from './richText';
 
 // Helper function pour obtenir la position correcte en fonction de la version du template
 const getPositionFromVersion = (
@@ -27,28 +28,33 @@ const checkAndAddNewPage = (doc: jsPDF, yPosition: number, requiredSpace: number
   return yPosition;
 };
 
-// Calculate required height for text content
+const SYNTHESE_LINE_HEIGHT = 3.5;
+
+// Calculate required height for text content (gère le texte enrichi)
 const calculateTextHeight = (doc: jsPDF, text: string, maxWidth: number) => {
-  doc.setFontSize(9);
-  const lines = doc.splitTextToSize(text, maxWidth);
-  return lines.length * 3.5;
+  return measureRichTextHeight(doc, text, maxWidth, 9, SYNTHESE_LINE_HEIGHT);
 };
 
-// Function to render wrapped text with page breaks
+// Function to render wrapped text with page breaks (corps en texte enrichi)
 const renderWrappedText = (doc: jsPDF, text: string, x: number, startY: number, maxWidth: number, label?: string) => {
   doc.setFontSize(9);
-  const lines = doc.splitTextToSize(text, maxWidth);
   let currentY = startY;
 
   if (label) {
     doc.setTextColor(80, 80, 80);
+    doc.setFont('helvetica', 'normal');
     doc.text(label, x, currentY);
-    currentY += 3.5;
+    currentY += SYNTHESE_LINE_HEIGHT;
   }
 
-  doc.setTextColor(0, 0, 0);
-  doc.text(lines, x, currentY);
-  return currentY + (lines.length * 3.5);
+  // L'option A s'applique : la couleur/surlignage utilisateur prime sur le corps.
+  const height = renderRichText(doc, text, x, currentY - SYNTHESE_LINE_HEIGHT * 0.8, maxWidth, {
+    fontSize: 9,
+    lineHeight: SYNTHESE_LINE_HEIGHT,
+    justify: false,
+    defaultColor: [0, 0, 0],
+  });
+  return currentY + height;
 };
 
 export const generateSynthese = (

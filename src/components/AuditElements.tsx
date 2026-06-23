@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Trash2, Copy } from 'lucide-react';
 import { StatusDropdown } from './StatusDropdown';
+import { RichTextField } from './RichTextField';
 import {
   Category,
   SubCategory,
@@ -132,21 +133,19 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Constat</label>
-          <textarea
+          <RichTextField
             value={getInputValue('constat')}
-            onChange={(e) => handleInputChange('constat', e.target.value)}
-            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            style={{ minHeight: '60px' }}
+            onChange={(value) => handleInputChange('constat', value)}
+            minHeight={60}
           />
         </div>
 
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Action</label>
-          <textarea
+          <RichTextField
             value={getInputValue('action')}
-            onChange={(e) => handleInputChange('action', e.target.value)}
-            className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            style={{ minHeight: '60px' }}
+            onChange={(value) => handleInputChange('action', value)}
+            minHeight={60}
           />
         </div>
 
@@ -206,21 +205,10 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 
               <td className="align-top p-0">
                 <div style={{ position: 'relative', minHeight: '80px' }}>
-                  <textarea
+                  <RichTextField
                     value={getInputValue('constat')}
-                    onChange={(e) => handleInputChange('constat', e.target.value)}
-                    style={{
-                      position: 'relative',
-                      minHeight: '80px',
-                      height: '80px',
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '0.25rem',
-                      outline: 'none',
-                      resize: 'both'
-                    }}
-                    className="focus:ring-2 focus:ring-blue-500"
+                    onChange={(value) => handleInputChange('constat', value)}
+                    minHeight={80}
                   />
                 </div>
               </td>
@@ -263,14 +251,10 @@ const AuditElementRow: React.FC<AuditElementRowProps> = ({
 
               <td className="align-top p-0">
                 <div className="min-h-[80px]">
-                  <textarea
+                  <RichTextField
                     value={getInputValue('action')}
-                    onChange={(e) => handleInputChange('action', e.target.value)}
-                    className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-vertical overflow-auto"
-                    style={{
-                      minHeight: '80px',
-                      maxHeight: '400px'
-                    }}
+                    onChange={(value) => handleInputChange('action', value)}
+                    minHeight={80}
                   />
                 </div>
               </td>

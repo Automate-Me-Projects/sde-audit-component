@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import { Audit, TemplateElement, AuditElement, ExpandedElement, SubCategory } from '../types';
 import { sortExpandedTemplateElements } from '../utils/index';
 import { MARGIN_X, CONTENT_WIDTH } from './constants';
+import { measureRichTextHeight, renderRichText } from './richText';
 
 const getStatusColor = (status: string): [number, number, number] => {
   switch (status) {
@@ -24,39 +25,23 @@ export const calculateRowHeight = (expandedElement: ExpandedElement, doc: jsPDF)
   const statusWidth = CONTENT_WIDTH * 0.15;
 
   const name = String(expandedElement.name || '').trim();
-  const constat = String(expandedElement.auditElement?.constat || '').trim();
+  const constat = expandedElement.auditElement?.constat || '';
   const status = String(expandedElement.auditElement?.status || '').trim();
 
-  const nameLines = doc.splitTextToSize(name, nameWidth - 4);
-  const constatLines = doc.splitTextToSize(constat, constatWidth - 4);
-  const statusLines = doc.splitTextToSize(status, statusWidth - 4);
-
   const lineHeight = 4;
-  const padding = 6; 
-  const safetyMargin = 4; 
+  const padding = 6;
+  const safetyMargin = 4;
+
+  doc.setFontSize(9);
+  const nameLines = doc.splitTextToSize(name, nameWidth - 4);
+  const statusLines = doc.splitTextToSize(status, statusWidth - 4);
 
   const nameTextHeight = nameLines.length * lineHeight;
   const statusTextHeight = statusLines.length * lineHeight;
-  
-  let constatTextHeight = 0;
-  const constatParagraphs = constat.split(/\n/);
-  
-  constatParagraphs.forEach((paragraph, index) => {
-    if (paragraph.trim() === '') {
-      constatTextHeight += lineHeight;
-      return;
-    }
-
-    const paragraphLines = doc.splitTextToSize(paragraph, constatWidth - 6);
-    constatTextHeight += paragraphLines.length * lineHeight;
-    
-    if (index < constatParagraphs.length - 1) {
-      constatTextHeight += lineHeight * 0.2; 
-    }
-  });
+  const constatTextHeight = measureRichTextHeight(doc, constat, constatWidth - 4, 9, lineHeight);
 
   const maxTextHeight = Math.max(nameTextHeight, constatTextHeight, statusTextHeight);
-  
+
   return maxTextHeight + padding + safetyMargin;
 };
 
@@ -75,39 +60,22 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
   ];
   
   const name = String(expandedElement.name || '').trim();
-  const constat = String(expandedElement.auditElement?.constat || '').trim();
+  const constat = expandedElement.auditElement?.constat || '';
   const status = String(expandedElement.auditElement?.status || '').trim();
 
   const nameLines = doc.splitTextToSize(name, nameWidth - 4);
-  const constatLines = doc.splitTextToSize(constat, constatWidth - 4);
   const statusLines = doc.splitTextToSize(status, statusWidth - 4);
 
   const lineHeight = 4;
-  const padding = 6; 
-  const safetyMargin = 4; 
+  const padding = 6;
+  const safetyMargin = 4;
 
   const nameTextHeight = nameLines.length * lineHeight;
   const statusTextHeight = statusLines.length * lineHeight;
-  
-  let constatTextHeight = 0;
-  const constatParagraphs = constat.split(/\n/);
-  
-  constatParagraphs.forEach((paragraph, index) => {
-    if (paragraph.trim() === '') {
-      constatTextHeight += lineHeight;
-      return;
-    }
-
-    const paragraphLines = doc.splitTextToSize(paragraph, constatWidth - 6);
-    constatTextHeight += paragraphLines.length * lineHeight;
-    
-    if (index < constatParagraphs.length - 1) {
-      constatTextHeight += lineHeight * 0.2; 
-    }
-  });
+  const constatTextHeight = measureRichTextHeight(doc, constat, constatWidth - 4, 9, lineHeight);
 
   const maxTextHeight = Math.max(nameTextHeight, constatTextHeight, statusTextHeight);
-  
+
   const rowHeight = maxTextHeight + padding + safetyMargin;
 
   doc.setDrawColor(128, 128, 128);
@@ -131,36 +99,11 @@ export const renderAuditElementRow = (expandedElement: ExpandedElement, startY: 
   });
 
   const constatVerticalPadding = (rowHeight - constatTextHeight) / 2;
-  const constatStartY = startY + constatVerticalPadding + lineHeight * 0.8;
-  
-  let currentY = constatStartY;
-
-  constatParagraphs.forEach((paragraph, index) => {
-    if (paragraph.trim() === '') {
-      currentY += lineHeight;
-      return;
-    }
-
-    const paragraphLines = doc.splitTextToSize(paragraph, constatWidth - 6);
-    const numberOfLines = paragraphLines.length;
-
-    if (numberOfLines <= 1 || doc.getTextWidth(paragraph) < (constatWidth - 6) * 0.75) {
-      doc.text(paragraph.trim(), xPositions[1] + 2, currentY, {
-        align: 'left',
-        maxWidth: constatWidth - 4
-      });
-    } else {
-      doc.text(paragraph.trim(), xPositions[1] + 2, currentY, {
-        align: 'justify',
-        maxWidth: constatWidth - 4,
-        renderingMode: "fill"
-      });
-    }
-
-    currentY += numberOfLines * lineHeight;
-    if (index < constatParagraphs.length - 1) {
-      currentY += lineHeight * 0.2; 
-    }
+  renderRichText(doc, constat, xPositions[1] + 2, startY + constatVerticalPadding, constatWidth - 4, {
+    fontSize: 9,
+    lineHeight,
+    justify: true,
+    defaultColor: [0, 0, 0],
   });
 
   const statusVerticalPadding = (rowHeight - statusTextHeight) / 2;
